@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveScore Pro</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#080d18;color:#fff}
+.header{background:#0f1b31;padding:18px;text-align:center;border-bottom:1px solid #253a5e}
+.header h1{font-size:22px}
+#dateLine{font-size:12px;color:#7fa1c8;margin-top:4px}
+.controls{display:flex;gap:8px;padding:12px;overflow-x:auto;background:#0f1b31}
+.btn{padding:8px 16px;border-radius:20px;border:1px solid #2a4a7a;background:#16233d;color:#8bb2e0;cursor:pointer}
+.btn.active{background:#1e90ff;color:#fff}
+.match{background:#111d33;margin:10px;padding:14px;border-radius:12px;border:1px solid #1e345c;display:flex;justify-content:space-between;align-items:center}
+.league{color:#5a7fb0;font-size:11px;margin-bottom:6px}
+.team-name{font-size:14px;margin:2px 0}
+.score{font-size:22px;font-weight:800;background:#080d18;padding:6px 14px;border-radius:8px;min-width:70px;text-align:center}
+.time{font-size:11px;padding:3px 8px;border-radius:10px;margin-top:5px;display:inline-block}
+.live{background:#00ff88;color:#000;font-weight:800}
+.ft{background:#2a3d5e;color:#9fb6d5}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>⚽ LIVE SCORE PRO</h1>
+<p id="dateLine">Loading...</p>
+</div>
+<div class="controls">
+<button class="btn active" onclick="filterGames('all',this)">All Games</button>
+<button class="btn" onclick="filterGames('live',this)">🔴 Live</button>
+<button class="btn" onclick="filterGames('finished',this)">Finished</button>
+<button class="btn" onclick="filterGames('scheduled',this)">Upcoming</button>
+</div>
+<div id="scores" style="padding:10px">Loading live matches...</div>
+<script>
+const API_KEY = "afad9a68-c248-429b-8aa7-b7626bb56744";
+const BASE = "https://soccer.highlightly.net";
+let allMatches = [];
+let currentFilter = 'all';
+async function loadMatches(){
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('dateLine').text
