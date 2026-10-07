@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const date = req.query.date || new Date().toISOString().split('T')[0];
-  const API_KEY = process.env.HIGHLIGHTLY_API_KEY;
+  const API_KEY = process.env.HIGHLIGHTLY_KEY || process.env.HIGHLIGTLY_KEY || process.env.HIGHLIGHTLY_API_KEY;
   if (!API_KEY) {
     return res.status(500).json({ error: "API Key missing in Vercel" });
   }
