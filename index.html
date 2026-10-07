@@ -1,47 +1,31 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Live Score Pro</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-  <h1>LIVE SCORE PRO</h1>
-  <div id="scores">Loading live matches...</div>
-
-<script>
-let allMatches = [];
-let currentFilter = "all";
-
-async function loadMatches() {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const res = await fetch(`/api/matches?date=${today}`);
-    const matches = await res.json();
-    allMatches = matches;
-    displayMatches(matches);
-  } catch (err) {
-    console.error(err);
-    document.getElementById('scores').innerHTML = 'Error loading matches';
-  }
-}
-
 function displayMatches(matches) {
   const container = document.getElementById('scores');
   if (!matches || matches.length === 0) {
-    container.innerHTML = 'No matches today';
+    container.innerHTML = 'No matches';
     return;
   }
-  container.innerHTML = matches.map(m => `
-    <div style="border:1px solid #ccc; margin:10px; padding:10px;">
-      <b>${m.homeTeam?.name || m.homeTeam || ''} vs ${m.awayTeam?.name || m.awayTeam || ''}</b><br>
-      ${m.state || m.status || ''} - ${m.score || ''}
-    </div>
-  `).join('');
+  
+  container.innerHTML = matches.map(m => {
+    const home = m.homeTeam?.name || m.homeTeam || 'Home';
+    const away = m.awayTeam?.name || m.awayTeam || 'Away';
+    
+    // Fix the [object Object] issue
+    let scoreText = '';
+    if (m.score) {
+      if (typeof m.score === 'string') scoreText = m.score;
+      else if (m.score.home != null) scoreText = `${m.score.home} - ${m.score.away}`;
+      else if (m.homeGoals != null) scoreText = `${m.homeGoals} - ${m.awayGoals}`;
+      else scoreText = `${m.goals?.home || 0} - ${m.goals?.away || 0}`;
+    } else {
+      scoreText = m.state || m.status || 'Live';
+    }
+    
+    return `
+      <div style="border:1px solid #ddd;padding:12px;margin:8px;border-radius:8px;background:#fff">
+        <b>${home} vs ${away}</b><br>
+        <span style="font-size:18px;font-weight:bold">${scoreText}</span>
+        <small style="display:block;color:#666">${m.league?.name || ''} - ${m.status || ''}</small>
+      </div>
+    `;
+  }).join('');
 }
-
-function filterMatches(type) { /* your filter logic */ }
-
-loadMatches();
-</script>
-</body>
-</html>
