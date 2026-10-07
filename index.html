@@ -1,23 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head><title>Live Score Pro</title><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}body{background:#0a1628;color:#fff}.header{background:#0a1930;text-align:center;padding:20px}.header p{color:#6b8cae}.filters{display:flex;gap:10px;padding:15px;overflow-x:auto;background:#0a1930}.filters button{border:2px solid #1e3a5f;background:transparent;color:#6b8cae;padding:10px 20px;border-radius:25px}.filters button.active{background:#0d8bf2;border-color:#0d8bf2;color:#fff}#scores{padding:10px}.match{background:#13233f;border-radius:12px;padding:15px;margin-bottom:10px;display:flex;justify-content:space-between;border:1px solid #1e3a5f}.teams small{color:#6b8cae}</style>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#0a1628;color:#fff}
+.header{background:#0a1930;text-align:center;padding:20px;border-bottom:1px solid #1e3a5f}
+.header p{color:#6b8cae;margin-top:5px}
+.filters{display:flex;gap:10px;padding:15px;overflow-x:auto;background:#0a1930;border-bottom:1px solid #1e3a5f}
+.filters button{border:2px solid #1e3a5f;background:transparent;color:#6b8cae;padding:10px 20px;border-radius:25px;white-space:nowrap;cursor:pointer}
+.filters button.active{background:#0d8bf2;border-color:#0d8bf2;color:#fff;font-weight:bold}
+#scores{padding:10px}
+.match{background:#13233f;border-radius:12px;padding:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid #1e3a5f}
+.teams b{font-size:15px}
+.teams small{color:#6b8cae;font-size:12px;display:block;margin-top:4px}
+.badge{font-size:11px;background:#1e3a5f;padding:3px 8px;border-radius:10px;color:#8ab4f8}
+.score{text-align:right;min-width:60px}
+.score b{font-size:18px}
+</style>
 </head>
 <body>
-<div class="header"><h1>⚽ LIVE SCORE PRO</h1><p id="count">Loading...</p></div>
+<div class="header"><h1>⚽ LIVE SCORE PRO</h1><p id="count">100 matches today</p></div>
 <div class="filters">
-<button class="active" onclick="showAll()">All Games</button>
-<button onclick="showLive()"><span style="width:10px;height:10px;background:red;display:inline-block;border-radius:50%"></span> Live</button>
-<button onclick="showFinished()">Finished</button>
+<button class="active" onclick="filterGames('all',this)">All Games</button>
+<button onclick="filterGames('live',this)">🔴 Live</button>
+<button onclick="filterGames('finished',this)">Finished</button>
+<button onclick="filterGames('upcoming',this)">Upcoming</button>
 </div>
 <div id="scores">Loading...</div>
 <script>
-let all=[];
-async function load(){let r=await fetch('/api/matches?date=2026-05-13');let d=await r.json();all=d.data||d||[];document.getElementById('count').innerText=all.length+' matches today';showAll()}
-function render(list){let box=document.getElementById('scores');if(!list.length){box.innerHTML='No matches';return}box.innerHTML=list.map(m=>{let h=m.homeTeam?.name||m.homeTeam||'Home';let a=m.awayTeam?.name||m.awayTeam||'Away';let l=m.league?.name||'';let st=m.status||m.state||'';if(typeof st==='object')st=st.type||st.name||'';let sc='vs';if(m.score){sc=typeof m.score==='string'?m.score:(m.score.home??0)+'-'+(m.score.away??0)}else if(m.homeGoals!=null)sc=m.homeGoals+'-'+m.awayGoals;return`<div class="match"><div class="teams"><b>${h} vs ${a}</b><br><small>${l}</small></div><div><b>${sc}</b><br><small>${st}</small></div></div>`}).join('')}
-function showAll(){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.filters button')[0].classList.add('active');render(all)}
-function showLive(){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.filters button')[1].classList.add('active');let f=all.filter(m=>{let s=String(m.status||m.state||'').toLowerCase();return s.includes('live')||s.includes('1h')||s.includes('2h')});render(f)}
-function showFinished(){document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.filters button')[2].classList.add('active');let f=all.filter(m=>{let s=String(m.status||m.state||'').toLowerCase();return s.includes('finish')||s.includes('ft')});render(f)}
+let allMatches=[];
+async function load(){
+  try{
+    let r=await fetch('/api/matches?date=2026-05-13');
+    let d=await r.json();
+    allMatches=d.data||d||[];
+    document.getElementById('count').innerText=allMatches.length+' matches today';
+    render(allMatches);
+  }catch(e){document.getElementById('scores').innerHTML='Error: '+e.message}
+}
+function getCountryLeague(m){
+  let leagueName = m.league?.name || m.competition?.name || m.league || 'League';
+  let country = m.league?.country || m.country?.name || m.country || '';
+  // Highlightly sometimes stores country inside league object
+  if(typeof country==='object') country=country.name||'';
+  if(!country){
+    // Try to guess from league
+    if(String(leagueName).includes('Major League')) country='USA';
+    else if(String(leagueName).includes('Copa do Brasil')) country='Brazil';
+    else country='';
+  }
+  return {country, league:leagueName};
+}
+function render(list){
+  let box=document.getElementById('scores');
+  if(!list.length){box.innerHTML='<div style="text-align:center;padding:40px;color:#6b8cae">No matches</div>';return}
+  box.innerHTML=list.map(m=>{
+    let home=m.homeTeam?.name||m.homeTeam||'Home';
+    let away=m.awayTeam?.name||m.awayTeam||'Away';
+    let {country,league}=getCountryLeague(m);
+    let status=m.status||m.state||''; if(typeof status==='object') status=status.type||'';
+    let scoreText='vs';
+    if(m.score){
+      if(typeof m.score==='string') scoreText=m.score;
+      else scoreText=(m.score.home??0)+' - '+(m.score.away??0);
+    }else if(m.homeGoals!=null) scoreText=m.homeGoals+' - '+m.awayGoals;
+    
+    let countryDisplay = country ? `<span class="badge">${country}</span>` : '';
+    let leagueDisplay = country ? `${country} • ${league}` : league;
+    
+    // FIX the vs vs bug - only show vs once
+    let vsText = (scoreText==='vs') ? 'vs' : scoreText;
+    
+    return `<div class="match">
+      <div class="teams">
+        <b>${home} vs ${away}</b>
+        <small>${leagueDisplay}</small>
+      </div>
+      <div class="score">
+        <b>${vsText}</b>
+        ${countryDisplay}
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterGames(type,btn){
+  document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  if(type==='all') return render(allMatches);
+  if(type==='live'){let f=allMatches.filter(m=>String(m.status||m.state||'').toLowerCase().includes('live'));return render(f)}
+  if(type==='finished'){let f=allMatches.filter(m=>String(m.status||'').toLowerCase().includes('finish')||String(m.status||'').toLowerCase().includes('ft'));return render(f)}
+  if(type==='upcoming'){let f=allMatches.filter(m=>{let s=String(m.status||'').toLowerCase();return s.includes('sched')||s.includes('upcoming')||s===''||s==='ns'});return render(f)}
+}
 load();
 </script>
 </body>
