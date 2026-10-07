@@ -1,31 +1,87 @@
-function displayMatches(matches) {
-  const container = document.getElementById('scores');
-  if (!matches || matches.length === 0) {
-    container.innerHTML = 'No matches';
-    return;
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Score Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+  body{background:#0a1628;color:#fff}
+  .header{background:#0a1930;text-align:center;padding:20px 10px;border-bottom:1px solid #1e3a5f}
+  .header h1{font-size:28px;letter-spacing:1px}
+  .header p{color:#6b8cae;margin-top:5px}
+  .filters{display:flex;gap:10px;padding:15px;overflow-x:auto;background:#0a1930;border-bottom:1px solid #1e3a5f}
+  .filters button{border:2px solid #1e3a5f;background:transparent;color:#6b8cae;padding:10px 20px;border-radius:25px;white-space:nowrap;font-size:14px;cursor:pointer}
+  .filters button.active{background:#0d8bf2;border-color:#0d8bf2;color:#fff;font-weight:bold}
+  .dot{width:12px;height:12px;background:red;border-radius:50%;display:inline-block;margin-right:5px;animation:blink 1s infinite}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  #scores{padding:10px}
+  .match{background:#13233f;border-radius:12px;padding:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid #1e3a5f}
+  .teams b{display:block;font-size:15px}
+  .teams small{color:#6b8cae;font-size:12px}
+  .score{text-align:right}
+  .score span{font-size:20px;font-weight:bold}
+  .score small{display:block;color:#6b8cae;font-size:12px;margin-top:3px}
+  .live{color:#ff3b30}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚽ LIVE SCORE PRO</h1>
+  <p id="count">Loading...</p>
+</div>
+<div class="filters">
+  <button class="active" onclick="filter('all',this)">All Games</button>
+  <button onclick="filter('live',this)"><span class="dot"></span>Live</button>
+  <button onclick="filter('finished',this)">Finished</button>
+  <button onclick="filter('upcoming',this)">Upcoming</button>
+</div>
+<div id="scores">Loading live matches...</div>
+
+<script>
+let allMatches = [];
+async function loadMatches(){
+  try{
+    const res = await fetch('/api/matches?date=2026-05-13');
+    let data = await res.json();
+    allMatches = data.data || data || [];
+    document.getElementById('count').innerText = allMatches.length + ' matches today';
+    display(allMatches);
+  }catch(e){
+    document.getElementById('scores').innerHTML = 'Error: '+e.message;
   }
-  
-  container.innerHTML = matches.map(m => {
-    const home = m.homeTeam?.name || m.homeTeam || 'Home';
-    const away = m.awayTeam?.name || m.awayTeam || 'Away';
-    
-    // Fix the [object Object] issue
-    let scoreText = '';
-    if (m.score) {
-      if (typeof m.score === 'string') scoreText = m.score;
-      else if (m.score.home != null) scoreText = `${m.score.home} - ${m.score.away}`;
-      else if (m.homeGoals != null) scoreText = `${m.homeGoals} - ${m.awayGoals}`;
-      else scoreText = `${m.goals?.home || 0} - ${m.goals?.away || 0}`;
-    } else {
-      scoreText = m.state || m.status || 'Live';
-    }
-    
-    return `
-      <div style="border:1px solid #ddd;padding:12px;margin:8px;border-radius:8px;background:#fff">
-        <b>${home} vs ${away}</b><br>
-        <span style="font-size:18px;font-weight:bold">${scoreText}</span>
-        <small style="display:block;color:#666">${m.league?.name || ''} - ${m.status || ''}</small>
-      </div>
-    `;
+}
+function display(matches){
+  const box = document.getElementById('scores');
+  if(!matches.length){box.innerHTML='No matches';return;}
+  box.innerHTML = matches.map(m=>{
+    let home = m.homeTeam?.name || m.homeTeam || 'Home';
+    let away = m.awayTeam?.name || m.awayTeam || 'Away';
+    let league = m.league?.name || m.competition?.name || '';
+    let status = (m.status || m.state || '').toLowerCase();
+    let score = 'vs';
+    if(m.score){
+      if(typeof m.score==='string') score=m.score;
+      else score=(m.score.home??m.homeGoals??0)+' - '+(m.score.away??m.awayGoals??0);
+    }else if(m.homeGoals!=null) score=m.homeGoals+' - '+m.awayGoals;
+    let isLive = status.includes('live')||status.includes('progress')||status.includes('1h')||status.includes('2h');
+    return `<div class="match"><div class="teams"><b>${home} vs ${away}</b><small>${league}</small></div><div class="score"><span class="${isLive?'live':''}">${score}</span><small>${m.status||m.state||''}</small></div></div>`;
   }).join('');
 }
+function filter(type,btn){
+  document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(type==='all') return display(allMatches);
+  if(type==='live') return display(allMatches.filter(m=>{
+    let s=(m.status||m.state||'').toLowerCase();return s.includes('live')||s.includes('progress')||s.includes('1h')||s.includes('2h');
+  }));
+  if(type==='finished') return display(allMatches.filter(m=>{
+    let s=(m.status||'').toLowerCase();return s.includes('finish')||s.includes('ft')||s.includes('full');
+  }));
+  if(type==='upcoming') return display(allMatches.filter(m=>{
+    let s=(m.status||'').toLowerCase();return s.includes('upcoming')||s.includes('not started')||s.includes('scheduled')||s===''||s==='ns';
+  }));
+}
+loadMatches();
+</script>
+</body>
+</html>
