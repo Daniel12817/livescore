@@ -1,35 +1,42 @@
 <!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nielking</title><style>
-body{margin:0;font-family:Arial;background:#fff;color:#000}
-.top{background:#222;color:#fff;text-align:center;padding:12px;font-weight:bold}
-.group{background:#383e4f;color:#fff;padding:6px 8px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between}
-.group u{font-weight:normal;color:#ccc;font-size:12px}
-.row{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #e0e0e0;font-size:14px;background:#fff}
-.time{width:45px;color:#444}
-.teams{flex:1}
-.score{width:45px;text-align:right;font-weight:bold;color:#004a9e}
-.score.live{color:#cc0000}
-.half{padding:4px 8px;background:#ffd9d9;color:#c00;font-weight:bold;font-size:13px}
+body{margin:0;font-family:Arial;background:#eaf7ea;color:#000}
+.top{background:#0a3d0a;color:#fff;text-align:center;padding:12px;font-weight:bold;font-size:18px}
+.group{background:#1f3a23;color:#fff;padding:7px 8px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;position:sticky;top:0}
+.group u{font-weight:normal;color:#a3d9a5;font-size:12px;cursor:pointer}
+.row{display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #c5e1c5;font-size:14px;background:#f6fff6;cursor:pointer}
+.row:hover{background:#d4edda}
+.row:active{background:#b8dfb8}
+.time{width:45px;color:#555;font-size:13px}
+.teams{flex:1;padding:0 6px}
+.score{width:45px;text-align:right;font-weight:bold;color:#0a7a0a}
+.score.live{color:#d00}
+.badge{background:#0a7a0a;color:#fff;padding:1px 5px;border-radius:4px;font-size:10px;margin-left:5px}
 </style></head><body>
-<div class="top">⚽ NIELKING LIVESCORE</div>
+<div class="top">⚽ NIELKING LIVESCORE <div style="font-size:11px;font-weight:normal;color:#a3d9a5">Click any match for details • Europe Time</div></div>
 <div id="box">Loading...</div>
 <script>
+let allData=[];
 async function load(){
   const r=await fetch('/api/matches'); const j=await r.json();
+  allData=j.data;
   let g={};
-  j.data.forEach(m=>{let k=m.country+': '+m.league; if(!g[k])g[k]=[]; g[k].push(m)});
+  j.data.forEach((m,i)=>{let k=m.country+': '+m.league; if(!g[k])g[k]=[]; m._id=i; g[k].push(m)});
   let h='';
   for(let k in g){
     h+=`<div class="group"><div>${k.toUpperCase()}</div><u>Standings</u></div>`;
     g[k].forEach(m=>{
-      if(m.isHT) h+=`<div class="half">Half Time</div>`;
-      let tm = m.isLive? m.elapsed+"'": m.isHT? "Half Time": m.timeEU;
-      let sc = `${m.homeScore}-${m.awayScore}`;
-      if(m.status=='NS') sc='-';
-      h+=`<div class="row"><div class="time">${tm}</div><div class="teams">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${sc}</div></div>`;
+      let tm = m.isLive? m.elapsed+"' LIVE": m.isHT? "HT": m.timeEU;
+      let liveDot = m.isLive? `<span class="badge">LIVE</span>`:"";
+      let sc = m.status=='NS'? '-': `${m.homeScore}-${m.awayScore}`;
+      h+=`<div class="row" onclick="openMatch(${m._id})"><div class="time">${tm}</div><div class="teams">${m.homeTeam} - ${m.awayTeam} ${liveDot}</div><div class="score ${m.isLive?'live':''}">${sc}</div></div>`;
     });
   }
   document.getElementById('box').innerHTML=h;
+}
+function openMatch(id){
+  let m=allData[id];
+  alert(`⚽ ${m.country}: ${m.league}\n\n${m.homeTeam} vs ${m.awayTeam}\nScore: ${m.homeScore}-${m.awayScore}\nTime: ${m.timeEU} (Europe/Berlin)\nStatus: ${m.status} ${m.elapsed?m.elapsed+"'":''}\n\nMore details coming soon!`);
 }
 load(); setInterval(load,30000);
 </script></body></html>
