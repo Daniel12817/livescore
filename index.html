@@ -1,33 +1,69 @@
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
-  
-  // FOREVER AUTO - TODAY IN EUROPE/BERLIN (Oct 8 today)
-  const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
-  
-  const API_KEY = process.env.RAPIDAPI_KEY || process.env.HIGHLIGHTLY_KEY;
-  if (!API_KEY) {
-    return res.status(500).json({ error: "API Key missing in Vercel - add RAPIDAPI_KEY" });
-  }
-
-  try {
-    const response = await fetch(`https://soccer-highlightly-api.p.rapidapi.com/matches?date=${date}`, {
-      headers: {
-        "X-RapidAPI-Key": API_KEY,
-        "X-RapidAPI-Host": "soccer-highlightly-api.p.rapidapi.com"
-      }
-    });
-    const data = await response.json();
-    const list = data.data || data.matches || data || [];
-    
-    return res.status(200).json({
-      dateUsed: date,
-      timeZone: "Europe/Berlin",
-      forever: true,
-      count: list.length,
-      data: list
-    });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
-  }
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Score - Europe Time</title>
+<style>
+body{margin:0;padding:0;font-family:Arial;background:#f5f5f5;color:#111}
+header{background:#111;color:#fff;padding:14px;text-align:center;font-weight:bold}
+#filters{text-align:center;padding:10px}
+.filter{padding:7px 14px;margin:3px;border-radius:20px;border:1px solid #222;background:#222;color:#fff;cursor:pointer}
+.filter.active{background:#fff;color:#000}
+.league{font-size:12px;color:#666;margin:15px 0 5px 8px;text-transform:uppercase}
+.match{background:#fff;display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #eee}
+.time{font-size:12px;width:55px}
+.team{font-weight:bold;font-size:14px}
+.score{font-weight:bold}
+#cnt{text-align:center;padding:10px;font-weight:bold}
+</style>
+</head>
+<body>
+<header>⚽ LIVE SCORE - EUROPE/BERLIN AUTO</header>
+<div id="filters">
+<button class="filter active" onclick="filterBy('all',this)">All</button>
+<button class="filter" onclick="filterBy('live',this)">Live</button>
+<button class="filter" onclick="filterBy('finished',this)">Finished</button>
+</div>
+<div id="cnt">Loading Europe time...</div>
+<div id="box"></div>
+<script>
+let all=[];
+async function load(){
+ try{
+  let r=await fetch('/api/matches');
+  let j=await r.json();
+  all=j.data||[];
+  document.getElementById('cnt').innerText=j.count+' matches - '+j.dateUsed+' - '+j.timeZone;
+  render(all);
+ }catch(e){document.getElementById('box').innerText='Error '+e.message}
 }
+function extractScore(m){
+ if(m.score&&typeof m.score==='string'&&m.score.includes('-'))return m.score;
+ let hs=m.homeScore??m.scores?.home??null;
+ let as=m.awayScore??m.scores?.away??null;
+ if(hs!==null&&as!==null)return hs+'-'+as;
+ return '-';
+}
+function extractTime(m){
+ try{
+  let raw=m.date||m.startTime||m.timestamp;
+  let d=new Date(typeof raw==='number'?raw*1000:raw);
+  return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Berlin'});
+ }catch{return '--:--'}
+}
+function getStatus(m){let s=(m.status||'').toLowerCase();if(s.includes('live')||s.includes('1h')||s.includes('2h')||m.minute)return'live';if(s.includes('ft')||s.includes('finished'))return'finished';return'upcoming'}
+function render(list){
+ let html='',last='';
+ list.forEach(m=>{
+  let lg=m.league?.name||m.competition?.name||'League';
+  if(lg!==last){html+='<div class="league">'+lg+'</div>';last=lg}
+  html+='<div class="match"><div class="time">'+extractTime(m)+'<br>'+(m.minute||'')+'</div><div style="flex:1;margin-left:10px"><div class="team">'+(m.homeTeam?.name||'Home')+'</div><div class="team">'+(m.awayTeam?.name||'Away')+'</div></div><div class="score">'+extractScore(m)+'</div></div>';
+ });
+ document.getElementById('box').innerHTML=html||'No matches today';
+}
+function filterBy(t,b){document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(t==='all')render(all);else render(all.filter(m=>getStatus(m)===t))}
+load();setInterval(load,120000);
+</script>
+</body>
+</html>
