@@ -1,115 +1,33 @@
-<!DOCTYPE html>
-<html>
-<head><title>Live Score Pro</title><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
-body{background:#f5f5f5;color:#111}
-.header{background:#0a1628;color:#fff;text-align:center;padding:14px}
-.filters{display:flex;gap:8px;padding:10px;background:#0a1628;overflow-x:auto}
-.filters button{border:1px solid #1e3a5f;background:#13233f;color:#8ab4f8;padding:8px 16px;border-radius:20px;white-space:nowrap}
-.filters button.active{background:#0d8bf2;color:#fff}
-.league{background:#222;color:#fff;padding:7px 12px;font-size:12px;font-weight:bold;text-transform:uppercase}
-.row{display:flex;padding:10px 12px;background:#fff;border-bottom:1px solid #e5e5e5;align-items:center}
-.time{width:60px;font-size:12px;color:#666}
-.teams{flex:1;font-size:14px}
-.score{font-weight:bold;min-width:50px;text-align:right}
-.live{color:#d00}
-</style>
-</head>
-<body>
-<div class="header"><h1>⚽ LIVE SCORE PRO</h1><p id="cnt">Loading...</p></div>
-<div class="filters">
-<button class="active" onclick="filterMe('all',this)">All Games</button>
-<button onclick="filterMe('live',this)">Live</button>
-<button onclick="filterMe('finished',this)">Finished</button>
-</div>
-<div id="box">Loading...</div>
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
+  
+  // FOREVER AUTO - TODAY IN EUROPE/BERLIN (Oct 8 today)
+  const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
+  
+  const API_KEY = process.env.RAPIDAPI_KEY || process.env.HIGHLIGHTLY_KEY;
+  if (!API_KEY) {
+    return res.status(500).json({ error: "API Key missing in Vercel - add RAPIDAPI_KEY" });
+  }
 
-<script>
-let all=[];
-async function load(){
- let r=await fetch('/api/matches?date=2026-05-13');
- let j=await r.json();
- console.log('RAW FIRST MATCH:', j.data? j.data[0] : j[0]);
- all=j.data||j||[];
- document.getElementById('cnt').innerText=all.length+' matches today';
- render(all);
+  try {
+    const response = await fetch(`https://soccer-highlightly-api.p.rapidapi.com/matches?date=${date}`, {
+      headers: {
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": "soccer-highlightly-api.p.rapidapi.com"
+      }
+    });
+    const data = await response.json();
+    const list = data.data || data.matches || data || [];
+    
+    return res.status(200).json({
+      dateUsed: date,
+      timeZone: "Europe/Berlin",
+      forever: true,
+      count: list.length,
+      data: list
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 }
-function extractScore(m){
- // Try every possible field Highlightly uses
- if(m.score && typeof m.score==='object'){
-   if(m.score.ft) return m.score.ft.home+'-'+m.score.ft.away;
-   if(m.score.fullTime) return m.score.fullTime.home+'-'+m.score.fullTime.away;
-   if(m.score.current!=null) return (m.score.home??'')+'-'+(m.score.away??'');
-   if(m.score.home!=null) return m.score.home+'-'+m.score.away;
- }
- if(m.homeScore!=null) return m.homeScore+'-'+m.awayScore;
- if(m.homeGoals!=null) return m.homeGoals+'-'+m.awayGoals;
- if(m.goals && m.goals.home!=null) return m.goals.home+'-'+m.goals.away;
- if(m.result) return m.result;
- if(m.ft) return m.ft;
- if(typeof m.score==='string' && m.score!=='vs') return m.score;
- // If match finished but no score field, check status string like "1-0"
- let s=String(m.status||m.state||'');
- let matchScore=s.match(/\d+\s*-\s*\d+/);
- if(matchScore) return matchScore[0];
- return '-';
-}
-function extractTime(m){
- let s=m.status||m.state||'';
- if(typeof s==='object') s=s.type||'';
- s=String(s);
- if(s.match(/^\d+'/)) return s; // 50'
- if(s.toLowerCase().includes('half')) return s;
- if(m.minute) return m.minute+"'";
- if(m.time) return m.time.slice(0,5);
- try{
-   let d=new Date(m.date||m.startTime||m.kickoff||m.timestamp*1000);
-   if(!isNaN(d)) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
- }catch{}
- return '12:00 AM';
-}
-function leagueInfo(m){
- let league=m.league?.name||m.competition?.name||m.league||'League';
- let country=m.league?.country||m.country?.name||m.country||'WORLD';
- if(typeof country==='object') country=country.name||'WORLD';
- return {country:String(country).toUpperCase(), league};
-}
-function render(list){
- let box=document.getElementById('box');
- if(!list.length){box.innerHTML='<div style="padding:20px;text-align:center">No matches</div>';return}
- let groups={};
- list.forEach(m=>{
-   let info=leagueInfo(m);
-   let key=`${info.country}: ${info.league}`;
-   if(!groups[key]) groups[key]=[];
-   groups[key].push(m);
- });
- let html='';
- for(let key in groups){
-   html+=`<div class="league">${key} <span style="float:right;font-weight:normal;color:#aaa">Standings</span></div>`;
-   groups[key].forEach(m=>{
-     let h=m.homeTeam?.name||m.homeTeam||'Home';
-     let a=m.awayTeam?.name||m.awayTeam||'Away';
-     let time=extractTime(m);
-     let score=extractScore(m);
-     let isLive=String(time).includes("'")||String(m.status||'').toLowerCase().includes('live');
-     html+=`<div class="row">
-       <div class="time ${isLive?'live':''}">${time}</div>
-       <div class="teams">${h} - ${a}</div>
-       <div class="score ${isLive?'live':''}">${score}</div>
-     </div>`;
-   });
- }
- box.innerHTML=html;
-}
-function filterMe(t,b){
- document.querySelectorAll('.filters button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
- if(t==='all') render(all);
- else if(t==='live') render(all.filter(m=>String(m.status||m.state||'').toLowerCase().includes('live')||String(extractTime(m)).includes("'")));
- else render(all.filter(m=>extractScore(m)!=='-'));
-}
-load();
-</script>
-</body>
-</html>
