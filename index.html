@@ -1,51 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nielking LiveScore</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial;background:#e5e5e5;color:#000}
-.top{background:#0d213a;color:#fff;padding:12px;text-align:center;font-weight:bold;font-size:18px}
-.top span{color:#00ff88;font-size:12px;font-weight:normal;display:block;margin-top:3px}
-.group{background:#3a4556;color:#fff;padding:7px 10px;font-weight:bold;font-size:13px;display:flex;justify-content:space-between}
-.group i{font-style:normal;color:#b0b8c5;font-weight:normal;font-size:11px;text-decoration:underline}
-.row{background:#fff;border-bottom:1px solid #ccc;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
-.time{width:50px;color:#555;font-size:13px}
-.teams{flex:1;padding:0 8px}
-.score{width:45px;text-align:center;font-weight:bold;color:#0b5fb3;font-size:15px}
-.score.live{color:#d00}
-.live{color:#d00;font-weight:bold;font-size:11px}
-</style>
-</head>
-<body>
-<div class="top">⚽ NIELKING LIVESCORE <span id="info">Loading Europe Time...</span></div>
-<div id="list"></div>
-<script>
-async function load(){
- const res = await fetch('/api/matches');
- const j = await res.json();
- document.getElementById('info').innerText = j.count+' matches today - Europe Time (Berlin) - '+new Date().toLocaleTimeString();
-
- let groups={};
- j.data.forEach(m=>{
-   let key = m.country+'|'+m.league;
-   if(!groups[key]) groups[key]=[];
-   groups[key].push(m);
- });
-
- let html='';
- for(let key in groups){
-   let [country, league] = key.split('|');
-   html+=`<div class="group"><div>${country.toUpperCase()}: ${league}</div><i>Standings</i></div>`;
-   groups[key].forEach(m=>{
-     let t = m.isLive? `<span class="live">${m.status} ${m.elapsed?m.elapsed+"'":''}</span>` : m.timeEU;
-     html+=`<div class="row"><div class="time">${t}</div><div class="teams">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
-   });
- }
- document.getElementById('list').innerHTML=html;
+export default async function handler(req,res){
+  res.setHeader("Access-Control-Allow-Origin","*");
+  const KEY = process.env.API_FOOTBALL_KEY;
+  const today = new Date().toISOString().split('T')[0];
+  try{
+    const r = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`,{
+      headers:{"x-apisports-key":KEY}
+    });
+    const j = await r.json();
+    const data = j.response.map(f=>{
+      const dt = new Date(f.fixture.date);
+      const timeEU = dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+      return{
+        country: f.league.country,
+        league: f.league.name,
+        homeTeam: f.teams.home.name,
+        awayTeam: f.teams.away.name,
+        homeScore: f.goals.home?? 0,
+        awayScore: f.goals.away?? 0,
+        status: f.fixture.status.short,
+        elapsed: f.fixture.status.elapsed,
+        timeEU: timeEU,
+        isLive: ["1H","2H","LIVE"].includes(f.fixture.status.short),
+        isHT: f.fixture.status.short==="HT"
+      }
+    });
+    res.json({count:data.length,data});
+  }catch(e){ res.json({count:0,data:[],error:e.message})}
 }
-load(); setInterval(load,30000);
-</script>
-</body>
-</html>
