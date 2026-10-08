@@ -1,53 +1,29 @@
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  const API_KEY = process.env.RAPIDAPI_KEY;
+export default async function handler(req,res){
+  res.setHeader("Access-Control-Allow-Origin","*");
+  res.setHeader("Access-Control-Allow-Methods","GET");
 
-  // AUTOMATIC EUROPE/BERLIN TIME - FOREVER
-  const berlinToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Berlin' });
-
-  // 1. TRY YOUR API FIRST (5 dates: today, yesterday, etc)
-  if(API_KEY){
-    let dates = [0,-1,-2,1,-3].map(o=>{
-      let d=new Date(); d.setDate(d.getDate()+o);
-      return d.toLocaleDateString('en-CA',{timeZone:'Europe/Berlin'});
-    });
-    for(let dateStr of dates){
-      try{
-        let r = await fetch(`https://soccer-highlightly-api.p.rapidapi.com/matches?date=${dateStr}`,{
-          headers:{"X-RapidAPI-Key":API_KEY,"X-RapidAPI-Host":"soccer-highlightly-api.p.rapidapi.com"}
-        });
-        let j = await r.json();
-        let list = Array.isArray(j)? j : (j.data || j.matches || []);
-        if(list.length > 0){
-          return res.json({dateUsed:dateStr,timeZone:"Europe/Berlin",count:list.length,data:list,src:"your-api"});
-        }
-      }catch(e){}
-    }
-  }
-
-  // 2. BACKUP - FREE ESPN - ALWAYS HAS TODAY MATCHES
   try{
-    let espnDate = berlinToday.replace(/-/g,'');
-    let r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=${espnDate}`);
-    let j = await r.json();
-    let events = j.events || [];
-    let list = events.map(ev=>{
-      let comp = ev.competitions[0];
+    // This one always has games, no API key needed
+    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard");
+    const j = await r.json();
+
+    const matches = (j.events || []).map(ev => {
+      const comp = ev.competitions[0];
+      const home = comp.competitors.find(t=>t.home);
+      const away = comp.competitors.find(t=>!t.home);
       return {
-        league:{name:ev.leagues?.[0]?.name || "Premier League"},
-        homeTeam:{name:comp.competitors[0].team.displayName},
-        awayTeam:{name:comp.competitors[1].team.displayName},
-        homeScore:comp.competitors[0].score,
-        awayScore:comp.competitors[1].score,
-        status:comp.status.type.description,
-        minute:comp.status.displayClock,
-        date:ev.date
+        league: "Premier League",
+        homeTeam: home.team.displayName,
+        awayTeam: away.team.displayName,
+        homeScore: home.score || "0",
+        awayScore: away.score || "0",
+        status: comp.status.type.shortDetail || comp.status.type.description,
+        isLive: comp.status.type.state === "in"
       };
     });
-    if(list.length>0){
-      return res.json({dateUsed:berlinToday,timeZone:"Europe/Berlin",count:list.length,data:list,src:"espn-backup"});
-    }
-  }catch(e){}
 
-  return res.json({dateUsed:berlinToday,timeZone:"Europe/Berlin",count:0,data:[]});
+    return res.status(200).json({ count: matches.length, data: matches });
+  }catch(e){
+    return res.status(200).json({ count: 0, data: [], error: e.message });
+  }
 }
