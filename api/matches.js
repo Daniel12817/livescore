@@ -1,43 +1,27 @@
 export default async function handler(req,res){
   res.setHeader("Access-Control-Allow-Origin","*");
-  res.setHeader("Access-Control-Allow-Methods","GET");
-  
-  const API_KEY = process.env.API_FOOTBALL_KEY;
-  
-  if(!API_KEY){
-    return res.status(500).json({error:"API_FOOTBALL_KEY not set in Vercel"});
-  }
+  const KEY = process.env.API_FOOTBALL_KEY;
+  if(!KEY) return res.json({error:"Add API_FOOTBALL_KEY in Vercel settings!"});
 
   try{
-    // Use Africa/Lagos date so Nigeria matches show correctly
-    const today = new Date().toLocaleDateString('en-CA', {timeZone:'Africa/Lagos'});
-    
-    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
-      headers: {
-        "x-apisports-key": API_KEY
-      }
+    const today = new Date().toISOString().split('T')[0]; // 2026-10-08 etc
+    const r = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}&timezone=Africa/Lagos`, {
+      headers: {"x-apisports-key": KEY}
     });
-    
-    const json = await response.json();
-    
-    if(!json.response || json.response.length === 0){
-      return res.json({count:0, data:[], message:`No matches on ${today}`});
-    }
+    const j = await r.json();
 
-    const data = json.response.map(f=>({
-      league: `${f.league.name} - ${f.league.country}`,
+    const data = (j.response || []).map(f=>({
+      league: f.league.name,
       homeTeam: f.teams.home.name,
       awayTeam: f.teams.away.name,
-      homeScore: f.goals.home ?? 0,
-      awayScore: f.goals.away ?? 0,
-      status: f.fixture.status.long === "Match Finished" ? "FT" : f.fixture.status.short + (f.fixture.status.elapsed ? ` ${f.fixture.status.elapsed}'` : ""),
-      isLive: ["1H","2H","HT","ET","P","LIVE"].includes(f.fixture.status.short),
-      time: new Date(f.fixture.date).toLocaleTimeString('en-NG', {hour:'2-digit', minute:'2-digit', timeZone:'Africa/Lagos'})
+      homeScore: f.goals.home?? 0,
+      awayScore: f.goals.away?? 0,
+      status: f.fixture.status.short,
+      isLive: ["1H","2H","LIVE"].includes(f.fixture.status.short)
     }));
 
-    return res.json({count:data.length, data});
-    
+    return res.json({count:data.length, data, date:today});
   }catch(e){
-    return res.status(500).json({error:e.message});
+    return res.json({error:e.message});
   }
 }
