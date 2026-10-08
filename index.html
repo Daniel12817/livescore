@@ -1,29 +1,35 @@
-export default async function handler(req,res){
-  res.setHeader("Access-Control-Allow-Origin","*");
-  const KEY = process.env.API_FOOTBALL_KEY;
-  const today = new Date().toISOString().split('T')[0];
-  try{
-    const r = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`,{
-      headers:{"x-apisports-key":KEY}
+<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nielking</title><style>
+body{margin:0;font-family:Arial;background:#fff;color:#000}
+.top{background:#222;color:#fff;text-align:center;padding:12px;font-weight:bold}
+.group{background:#383e4f;color:#fff;padding:6px 8px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between}
+.group u{font-weight:normal;color:#ccc;font-size:12px}
+.row{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #e0e0e0;font-size:14px;background:#fff}
+.time{width:45px;color:#444}
+.teams{flex:1}
+.score{width:45px;text-align:right;font-weight:bold;color:#004a9e}
+.score.live{color:#cc0000}
+.half{padding:4px 8px;background:#ffd9d9;color:#c00;font-weight:bold;font-size:13px}
+</style></head><body>
+<div class="top">⚽ NIELKING LIVESCORE</div>
+<div id="box">Loading...</div>
+<script>
+async function load(){
+  const r=await fetch('/api/matches'); const j=await r.json();
+  let g={};
+  j.data.forEach(m=>{let k=m.country+': '+m.league; if(!g[k])g[k]=[]; g[k].push(m)});
+  let h='';
+  for(let k in g){
+    h+=`<div class="group"><div>${k.toUpperCase()}</div><u>Standings</u></div>`;
+    g[k].forEach(m=>{
+      if(m.isHT) h+=`<div class="half">Half Time</div>`;
+      let tm = m.isLive? m.elapsed+"'": m.isHT? "Half Time": m.timeEU;
+      let sc = `${m.homeScore}-${m.awayScore}`;
+      if(m.status=='NS') sc='-';
+      h+=`<div class="row"><div class="time">${tm}</div><div class="teams">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${sc}</div></div>`;
     });
-    const j = await r.json();
-    const data = j.response.map(f=>{
-      const dt = new Date(f.fixture.date);
-      const timeEU = dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
-      return{
-        country: f.league.country,
-        league: f.league.name,
-        homeTeam: f.teams.home.name,
-        awayTeam: f.teams.away.name,
-        homeScore: f.goals.home?? 0,
-        awayScore: f.goals.away?? 0,
-        status: f.fixture.status.short,
-        elapsed: f.fixture.status.elapsed,
-        timeEU: timeEU,
-        isLive: ["1H","2H","LIVE"].includes(f.fixture.status.short),
-        isHT: f.fixture.status.short==="HT"
-      }
-    });
-    res.json({count:data.length,data});
-  }catch(e){ res.json({count:0,data:[],error:e.message})}
+  }
+  document.getElementById('box').innerHTML=h;
 }
+load(); setInterval(load,30000);
+</script></body></html>
