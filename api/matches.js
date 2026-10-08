@@ -1,36 +1,43 @@
 export default async function handler(req,res){
   res.setHeader("Access-Control-Allow-Origin","*");
+  res.setHeader("Access-Control-Allow-Methods","GET");
+  
+  const API_KEY = process.env.API_FOOTBALL_KEY;
+  
+  if(!API_KEY){
+    return res.status(500).json({error:"API_FOOTBALL_KEY not set in Vercel"});
+  }
 
-  // ALWAYS TRY REAL API FIRST
   try{
-    const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboard?limit=100");
-    const j = await r.json();
-    if(j.events && j.events.length > 0){
-      const matches = j.events.map(ev=>{
-        const c=ev.competitions[0];
-        const home=c.competitors.find(t=>t.home);
-        const away=c.competitors.find(t=>!t.home);
-        return {
-          league: ev.league?.name || "Football",
-          homeTeam: home.team.displayName,
-          awayTeam: away.team.displayName,
-          homeScore: home.score?? "0",
-          awayScore: away.score?? "0",
-          status: c.status.type.shortDetail,
-          isLive: c.status.type.state==="in"
-        };
-      });
-      return res.json({count:matches.length, data:matches});
+    // Use Africa/Lagos date so Nigeria matches show correctly
+    const today = new Date().toLocaleDateString('en-CA', {timeZone:'Africa/Lagos'});
+    
+    const response = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
+      headers: {
+        "x-apisports-key": API_KEY
+      }
+    });
+    
+    const json = await response.json();
+    
+    if(!json.response || json.response.length === 0){
+      return res.json({count:0, data:[], message:`No matches on ${today}`});
     }
-  }catch(e){}
 
-  // IF NO MATCH TODAY (international break), SHOW YESTERDAY'S MATCHES SO SITE NEVER EMPTY
-  const fallback = [
-    {league:"Premier League", homeTeam:"Man City", awayTeam:"Arsenal", homeScore:"2", awayScore:"1", status:"FT", isLive:false},
-    {league:"La Liga", homeTeam:"Barcelona", awayTeam:"Real Madrid", homeScore:"1", awayScore:"1", status:"FT", isLive:false},
-    {league:"Serie A", homeTeam:"Inter", awayTeam:"AC Milan", homeScore:"0", awayScore:"2", status:"FT", isLive:false},
-    {league:"Bundesliga", homeTeam:"Bayern Munich", awayTeam:"Dortmund", homeScore:"3", awayScore:"0", status:"FT", isLive:false},
-    {league:"Champions League", homeTeam:"Liverpool", awayTeam:"PSG", homeScore:"2", awayScore:"2", status:"Live 78'", isLive:true},
-  ];
-  return res.json({count:fallback.length, data:fallback});
+    const data = json.response.map(f=>({
+      league: `${f.league.name} - ${f.league.country}`,
+      homeTeam: f.teams.home.name,
+      awayTeam: f.teams.away.name,
+      homeScore: f.goals.home ?? 0,
+      awayScore: f.goals.away ?? 0,
+      status: f.fixture.status.long === "Match Finished" ? "FT" : f.fixture.status.short + (f.fixture.status.elapsed ? ` ${f.fixture.status.elapsed}'` : ""),
+      isLive: ["1H","2H","HT","ET","P","LIVE"].includes(f.fixture.status.short),
+      time: new Date(f.fixture.date).toLocaleTimeString('en-NG', {hour:'2-digit', minute:'2-digit', timeZone:'Africa/Lagos'})
+    }));
+
+    return res.json({count:data.length, data});
+    
+  }catch(e){
+    return res.status(500).json({error:e.message});
+  }
 }
