@@ -1,69 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Live Score - Europe Time</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Score</title>
 <style>
-body{margin:0;padding:0;font-family:Arial;background:#f5f5f5;color:#111}
-header{background:#111;color:#fff;padding:14px;text-align:center;font-weight:bold}
-#filters{text-align:center;padding:10px}
-.filter{padding:7px 14px;margin:3px;border-radius:20px;border:1px solid #222;background:#222;color:#fff;cursor:pointer}
-.filter.active{background:#fff;color:#000}
-.league{font-size:12px;color:#666;margin:15px 0 5px 8px;text-transform:uppercase}
-.match{background:#fff;display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #eee}
-.time{font-size:12px;width:55px}
-.team{font-weight:bold;font-size:14px}
-.score{font-weight:bold}
-#cnt{text-align:center;padding:10px;font-weight:bold}
+body{margin:0;font-family:Arial;background:#f2f2f2}
+.header{background:#111;color:#fff;padding:15px;text-align:center;font-weight:bold;font-size:18px}
+.tabs{display:flex;justify-content:center;gap:10px;padding:10px}
+.tabs button{padding:8px 18px;border-radius:20px;border:1px solid #111;background:#fff;cursor:pointer}
+.tabs button.active{background:#111;color:#fff}
+.card{background:#fff;margin:10px;padding:12px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+.league{font-size:12px;color:gray}
+.match{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-weight:bold}
+.score{color:#111}
+.status{font-size:12px;color:green;margin-top:5px}
+#loading{text-align:center;padding:30px}
 </style>
 </head>
 <body>
-<header>⚽ LIVE SCORE - EUROPE/BERLIN AUTO</header>
-<div id="filters">
-<button class="filter active" onclick="filterBy('all',this)">All</button>
-<button class="filter" onclick="filterBy('live',this)">Live</button>
-<button class="filter" onclick="filterBy('finished',this)">Finished</button>
+<div class="header">⚽ LIVE SCORE</div>
+<div class="tabs">
+<button class="active" onclick="filterMatches('all',this)">All</button>
+<button onclick="filterMatches('live',this)">Live</button>
+<button onclick="filterMatches('finished',this)">Finished</button>
 </div>
-<div id="cnt">Loading Europe time...</div>
-<div id="box"></div>
+<div id="loading">Loading matches...</div>
+<div id="list"></div>
+
 <script>
-let all=[];
+let allMatches = [];
 async function load(){
- try{
-  let r=await fetch('/api/matches');
-  let j=await r.json();
-  all=j.data||[];
-  document.getElementById('cnt').innerText=j.count+' matches - '+j.dateUsed+' - '+j.timeZone;
-  render(all);
- }catch(e){document.getElementById('box').innerText='Error '+e.message}
+  try{
+    const res = await fetch('/api/matches');
+    const json = await res.json();
+    allMatches = json.data || [];
+    document.getElementById('loading').style.display='none';
+    if(allMatches.length===0){
+      document.getElementById('list').innerHTML='<p style="text-align:center">No matches today</p>';
+      return;
+    }
+    render(allMatches);
+  }catch(err){
+    document.getElementById('loading').innerHTML='Error Failed to fetch - check internet and use https://livescore-psi-two.vercel.app';
+  }
 }
-function extractScore(m){
- if(m.score&&typeof m.score==='string'&&m.score.includes('-'))return m.score;
- let hs=m.homeScore??m.scores?.home??null;
- let as=m.awayScore??m.scores?.away??null;
- if(hs!==null&&as!==null)return hs+'-'+as;
- return '-';
+function render(data){
+  const list=document.getElementById('list');
+  list.innerHTML='';
+  data.forEach(m=>{
+    list.innerHTML+=`<div class="card">
+      <div class="league">${m.league}</div>
+      <div class="match"><span>${m.homeTeam}</span><span class="score">${m.homeScore} - ${m.awayScore}</span><span>${m.awayTeam}</span></div>
+      <div class="status">${m.status}</div>
+    </div>`;
+  });
 }
-function extractTime(m){
- try{
-  let raw=m.date||m.startTime||m.timestamp;
-  let d=new Date(typeof raw==='number'?raw*1000:raw);
-  return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Berlin'});
- }catch{return '--:--'}
+function filterMatches(type,btn){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(type==='all') render(allMatches);
+  if(type==='live') render(allMatches.filter(m=>m.isLive));
+  if(type==='finished') render(allMatches.filter(m=>!m.isLive));
 }
-function getStatus(m){let s=(m.status||'').toLowerCase();if(s.includes('live')||s.includes('1h')||s.includes('2h')||m.minute)return'live';if(s.includes('ft')||s.includes('finished'))return'finished';return'upcoming'}
-function render(list){
- let html='',last='';
- list.forEach(m=>{
-  let lg=m.league?.name||m.competition?.name||'League';
-  if(lg!==last){html+='<div class="league">'+lg+'</div>';last=lg}
-  html+='<div class="match"><div class="time">'+extractTime(m)+'<br>'+(m.minute||'')+'</div><div style="flex:1;margin-left:10px"><div class="team">'+(m.homeTeam?.name||'Home')+'</div><div class="team">'+(m.awayTeam?.name||'Away')+'</div></div><div class="score">'+extractScore(m)+'</div></div>';
- });
- document.getElementById('box').innerHTML=html||'No matches today';
-}
-function filterBy(t,b){document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(t==='all')render(all);else render(all.filter(m=>getStatus(m)===t))}
-load();setInterval(load,120000);
+load();
 </script>
 </body>
 </html>
