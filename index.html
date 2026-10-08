@@ -2,59 +2,50 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nielking LiveScore - Real Scores</title>
+<title>Nielking LiveScore</title>
 <style>
-body{font-family:Arial;background:#0a0e1a;color:white;margin:0;padding:15px}
-h1{text-align:center;color:#00ff88}
-.header{text-align:center;margin-bottom:20px}
-.match{background:#151a2a;border-radius:12px;padding:15px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid #333}
-.match.live{border-left-color:#ff0000;background:#1f1220}
-.teams{flex:1}
-.team{font-weight:bold}
-.league{font-size:11px;color:#888;margin-bottom:5px}
-.score{font-size:22px;font-weight:bold;text-align:center;min-width:80px}
-.live-dot{color:#ff0000;font-size:11px;animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-.time{font-size:11px;color:#aaa}
-.loading{text-align:center;padding:50px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial;background:#e5e5e5;color:#000}
+.top{background:#0d213a;color:#fff;padding:12px;text-align:center;font-weight:bold;font-size:18px}
+.top span{color:#00ff88;font-size:12px;font-weight:normal;display:block;margin-top:3px}
+.group{background:#3a4556;color:#fff;padding:7px 10px;font-weight:bold;font-size:13px;display:flex;justify-content:space-between}
+.group i{font-style:normal;color:#b0b8c5;font-weight:normal;font-size:11px;text-decoration:underline}
+.row{background:#fff;border-bottom:1px solid #ccc;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.time{width:50px;color:#555;font-size:13px}
+.teams{flex:1;padding:0 8px}
+.score{width:45px;text-align:center;font-weight:bold;color:#0b5fb3;font-size:15px}
+.score.live{color:#d00}
+.live{color:#d00;font-weight:bold;font-size:11px}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>⚽ Nielking LiveScore</h1>
-<div id="count">Loading real scores...</div>
-</div>
-<div id="matches"></div>
-
+<div class="top">⚽ NIELKING LIVESCORE <span id="info">Loading Europe Time...</span></div>
+<div id="list"></div>
 <script>
-async function loadScores(){
-  try{
-    const r = await fetch('/api/matches');
-    const j = await r.json();
-    document.getElementById('count').innerText = j.count + ' matches today - ' + new Date().toLocaleTimeString();
-    let html='';
-    if(j.data.length==0) html='<div class=loading>No matches today, check tomorrow!</div>';
-    j.data.forEach(m=>{
-      html+=`
-      <div class="match ${m.isLive?'live':''}">
-        <div class="teams">
-          <div class="league">${m.league} ${m.isLive?'<span class=live-dot>● LIVE</span>':''}</div>
-          <div class="team">${m.homeTeam}</div>
-          <div class="team">${m.awayTeam}</div>
-        </div>
-        <div class="score">
-          ${m.homeScore} - ${m.awayScore}
-          <div class="time">${m.status}</div>
-        </div>
-      </div>`;
-    });
-    document.getElementById('matches').innerHTML=html;
-  }catch(e){
-    document.getElementById('matches').innerHTML='Error loading - refresh';
-  }
+async function load(){
+ const res = await fetch('/api/matches');
+ const j = await res.json();
+ document.getElementById('info').innerText = j.count+' matches today - Europe Time (Berlin) - '+new Date().toLocaleTimeString();
+
+ let groups={};
+ j.data.forEach(m=>{
+   let key = m.country+'|'+m.league;
+   if(!groups[key]) groups[key]=[];
+   groups[key].push(m);
+ });
+
+ let html='';
+ for(let key in groups){
+   let [country, league] = key.split('|');
+   html+=`<div class="group"><div>${country.toUpperCase()}: ${league}</div><i>Standings</i></div>`;
+   groups[key].forEach(m=>{
+     let t = m.isLive? `<span class="live">${m.status} ${m.elapsed?m.elapsed+"'":''}</span>` : m.timeEU;
+     html+=`<div class="row"><div class="time">${t}</div><div class="teams">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
+   });
+ }
+ document.getElementById('list').innerHTML=html;
 }
-loadScores();
-setInterval(loadScores, 30000); // refresh every 30 sec for real livescore
+load(); setInterval(load,30000);
 </script>
 </body>
 </html>
