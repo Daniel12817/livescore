@@ -51,6 +51,57 @@ body{background:#0a2e2b;color:#fff;font-family:Arial}
 let allData=[], currentFilter='all', currentDateISO='';
 function getISO(o){let d=new Date();d.setDate(d.getDate()+o);return d.toISOString().split('T')[0];}
 currentDateISO=getISO(0);
-
 function setDate(type){
- document.querySelectorAll('.date-bar button').forEach
+ document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
+ if(type==='today'){currentDateISO=getISO(0);document.getElementById('d-today').classList.add('active');}
+ if(type==='yest'){currentDateISO=getISO(-1);document.getElementById('d-yest').classList.add('active');}
+ if(type==='tom'){currentDateISO=getISO(1);document.getElementById('d-tom').classList.add('active');}
+ loadMatches(currentDateISO);
+}
+function setFilter(f){
+ currentFilter=f;
+ document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));
+ if(f==='all')document.getElementById('f-all').classList.add('active');
+ if(f==='live')document.getElementById('f-live').classList.add('active');
+ if(f==='finished')document.getElementById('f-fin').classList.add('active');
+ document.getElementById('f-ref').classList.add('active');
+ setTimeout(()=>document.getElementById('f-ref').classList.remove('active'),200);
+ render();
+}
+function doRefresh(){loadMatches(currentDateISO);}
+async function loadMatches(date){
+ document.getElementById('content').innerHTML=`<div class="loading">Loading ${date}...</div>`;
+ try{
+  const res=await fetch(`/api/matches?date=${date}`);
+  const json=await res.json();
+  allData=json.data||[];
+  render();
+ }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error ${e.message}</div>`;}
+}
+function render(){
+ let data=allData;
+ if(currentFilter==='live') data=data.filter(m=>m.isLive);
+ if(currentFilter==='finished') data=data.filter(m=>m.isFinished);
+ if(!data.length){document.getElementById('content').innerHTML=`<div class="loading">No ${currentFilter} games</div>`;return;}
+ const groups={};
+ data.forEach(m=>{
+  const key=`${m.country}: ${m.league}`;
+  if(!groups[key]) groups[key]=[];
+  groups[key].push(m);
+ });
+ let html='';
+ for(const key in groups){
+  const ms=groups[key];
+  html+=`<div class="league"><div class="league-head"><span>${key.toUpperCase()}</span><span class="standings">Standings</span></div>`;
+  ms.forEach(m=>{
+   let timeDisplay = m.minute? m.minute : m.timeEU;
+   html+=`<div class="match"><div class="time" style="${m.isLive?'color:#ff3b30':''}">${timeDisplay}</div><div style="flex:1;text-align:center">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
+  });
+  html+=`</div>`;
+ }
+ document.getElementById('content').innerHTML=html;
+}
+loadMatches(currentDateISO);
+</script>
+</body>
+</html>
