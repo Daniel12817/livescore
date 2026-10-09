@@ -1,75 +1,71 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
-
-  const dateParam = req.query.date || new Date().toISOString().split('T')[0];
-  const ymd = dateParam.replace(/-/g, '');
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const KEY = process.env.APISPORT_KEY || "";
 
   try {
-    // Use ESPN - 100% free and no key needed
-    const espnRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${ymd}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-
-    const espnData = await espnRes.json();
-    let games = [];
-
-    (espnData.events || []).forEach(ev => {
-      const comp = ev.competitions?.[0];
-      if (!comp) return;
-
-      const home = comp.competitors?.find(c => c.homeAway === 'home');
-      const away = comp.competitors?.find(c => c.homeAway === 'away');
-      const status = comp.status?.type?.state; // pre, in, post, halftime
-      const clock = comp.status?.displayClock || "";
-      const detail = comp.status?.type?.shortDetail || "";
-
-      // Build minute display
-      let minute = "";
-      if (status === 'in') {
-        if (clock) minute = clock + "'";
-        else if (comp.status.clock) minute = Math.floor(comp.status.clock / 60) + "'";
-        else minute = detail.includes("'")? detail.match(/\d+'/)?.[0] || "LIVE" : "LIVE";
-      } else if (status === 'halftime') {
-        minute = "HT";
-      } else if (status === 'post') {
-        minute = "FT";
-      } else {
-        // Not started - show time in EU
+    // 1. TRY APISPORT.ONLINE WITH x-api-key HEADER (your paid key)
+    if (KEY) {
+      const urls = [
+        `https://api.apisport.online/v1/football/matches?date=${date}`,
+        `https://api.apisport.online/api/football/matches?date=${date}`,
+        `https://api.apisport.online/football/matches/live`,
+        `https://api.apisport.online/v1/football/livescores?date=${date}`
+      ];
+      for (const url of urls) {
         try {
-          const d = new Date(ev.date);
-          minute = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/Madrid' });
-        } catch { minute = "20:00"; }
+          const r = await fetch(url, { headers: { "x-api-key": KEY, "X-API-KEY": KEY } });
+          const j = await r.json();
+          const list = j.data || j.matches || j.response || [];
+          if (list.length > 0) {
+            const games = list.map(item => {
+              const m = item.match || item.fixture || item;
+              const home = m.homeTeam || item.teams?.home || {};
+              const away = m.awayTeam || item.teams?.away || {};
+              let minute = m.minute? m.minute+"'" : m.state?.minute? m.state.minute+"'" : "FT";
+              if ((m.state?.description||"").toUpperCase().includes("HT")) minute="HT";
+              let hs=0,as=0;
+              if (m.state?.score?.current){ const p=m.state.score.current.split("-"); hs=parseInt(p[0])||0; as=parseInt(p[1])||0; }
+              else { hs=parseInt(home.score||item.goals?.home)||0; as=parseInt(away.score||item.goals?.away)||0; }
+              return {
+                country:(m.country?.name||"WORLD").toUpperCase(),
+                league:(m.league?.name||item.league?.name||"LEAGUE").toUpperCase(),
+                homeTeam:home.name||"Home", awayTeam:away.name||"Away",
+                homeScore:hs, awayScore:as,
+                minute:minute.replace(/LIVE/gi,'').trim(), timeEU:minute.replace(/LIVE/gi,'').trim(),
+                isLive:(m.state?.status==='inplay'), isFinished:(m.state?.status==='finished')
+              };
+            });
+            if (games.length>0) return res.status(200).json({ data: games, source:"apisport" });
+          }
+        } catch {}
       }
+    }
 
-      // Clean minute - remove LIVE word, just 47', 26', HT, FT
-      minute = minute.replace('LIVE', '').trim();
-      if (minute === "") minute = "LIVE";
-
+    // 2. FALLBACK ESPN - always works with minute like 47' 26'
+    const ymd = date.replace(/-/g,'');
+    const er = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${ymd}`);
+    const ej = await er.json();
+    let games=[];
+    (ej.events||[]).forEach(ev=>{
+      const c=ev.competitions?.[0]; if(!c) return;
+      const home=c.competitors?.find(x=>x.homeAway==='home');
+      const away=c.competitors?.find(x=>x.homeAway==='away');
+      const st=c.status?.type?.state;
+      let minute = st==='in'? (c.status.displayClock||"")+"'" : st==='halftime'? "HT" : st==='post'? "FT" : new Date(ev.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Africa/Lagos'});
+      minute=minute.replace("''","'").replace("LIVE",'').trim();
+      if(!minute.includes("'")&&!minute.includes(":")&&minute!=="HT"&&minute!=="FT") minute+="''";
       games.push({
-        country: (ev.league?.name?.split(' - ')[0] || "WORLD").toUpperCase().substring(0, 20),
-        league: (comp.league?.name || ev.league?.name || "ALL LEAGUES").toUpperCase(),
-        homeTeam: home?.team?.displayName || "Home",
-        awayTeam: away?.team?.displayName || "Away",
-        homeScore: parseInt(home?.score) || 0,
-        awayScore: parseInt(away?.score) || 0,
-        timeEU: minute,
-        minute: minute,
-        isLive: status === 'in' || status === 'halftime',
-        isFinished: status === 'post'
+        country:"WORLD", league:(ev.league?.name||"ALL").toUpperCase(),
+        homeTeam:home?.team?.displayName||"Home", awayTeam:away?.team?.displayName||"Away",
+        homeScore:parseInt(home?.score)||0, awayScore:parseInt(away?.score)||0,
+        minute, timeEU:minute, isLive:st==='in'||st==='halftime', isFinished:st==='post'
       });
     });
-
-    // Sort - LIVE first
-    games.sort((a,b) => {
-      if (a.isLive &&!b.isLive) return -1;
-      if (!a.isLive && b.isLive) return 1;
-      return 0;
-    });
-
-    return res.status(200).json({ data: games, date: dateParam, count: games.length });
-
-  } catch (e) {
-    return res.status(200).json({ data: [], error: e.message, date: dateParam });
+    games.sort((a,b)=>a.isLive&&!b.isLive?-1:!a.isLive&&b.isLive?1:0);
+    return res.status(200).json({ data: games, source:"espn" });
+  } catch(e){
+    return res.status(200).json({ data: [], error:e.message });
   }
 }
