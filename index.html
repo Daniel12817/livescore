@@ -1,99 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nielking Livescore</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#121317;color:#fff;font-family:Arial,sans-serif}
-.top{background:#1a4d2e;padding:14px;text-align:center;font-weight:bold;font-size:16px;letter-spacing:1px}
-.ad{margin:8px;border-radius:6px;padding:10px;text-align:center;font-weight:bold;cursor:pointer;font-size:13px}
-.ad1{background:#ffcc00;color:#000}
-.ad2{background:#00d4ff;color:#000}
-.date-bar{display:flex;gap:8px;padding:10px;overflow-x:auto;background:#1e1f26}
-.date-bar button{background:#2a2c36;border:none;color:#aaa;padding:8px 16px;border-radius:20px;font-size:13px;white-space:nowrap}
-.date-bar button.active{background:#e53935;color:#fff}
-.filter-bar{display:flex;gap:8px;padding:0 10px 12px;background:#1e1f26}
-.filter-bar button{background:#2a2c36;border:none;color:#aaa;padding:10px 14px;border-radius:20px;font-size:13px;display:flex;align-items:center;gap:6px}
-.filter-bar button.active{background:#fff;color:#000}
-.filter-bar button.live{color:#fff}
-.dot{width:8px;height:8px;background:#e53935;border-radius:50%;display:inline-block}
-.league{background:#2a2c36;margin:10px 8px;border-radius:10px;overflow:hidden}
-.league-head{background:#252731;padding:10px 12px;font-size:12px;color:#aaa;font-weight:bold;display:flex;justify-content:space-between}
-.match{display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid #1e1f26}
-.match-left{color:#888;font-size:11px;min-width:70px}
-.match-center{flex:1;font-size:14px;line-height:1.6}
-.team{display:flex;align-items:center;gap:6px}
-.score{padding:6px 14px;border-radius:8px;font-weight:bold;font-size:14px;min-width:45px;text-align:center}
-.score.live{background:#e53935;color:#fff}
-.score.notlive{background:#2f3240;color:#fff}
-#content{padding-bottom:30px}
-.loading{padding:40px;text-align:center;color:#888}
-</style>
-</head>
-<body>
-<div class="top">⚽ NIELKING LIVESCORE</div>
-<div class="ad ad1" onclick="window.open('https://wa.me/2348100000000','_blank')">ADVERT 1 - CLICK HERE</div>
-<div class="ad ad2" onclick="window.open('https://wa.me/2348100000000','_blank')">WhatsApp Us</div>
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const ymd = date.replace(/-/g,'');
+  try{
+    const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${ymd}`);
+    const j = await r.json();
+    const games = (j.events||[]).map(ev=>{
+      const c = ev.competitions?.[0];
+      const h = c?.competitors?.find(x=>x.homeAway==='home');
+      const a = c?.competitors?.find(x=>x.homeAway==='away');
+      const st = c?.status?.type?.state;
+      let rawLeague = ev.league?.name || c?.notes?.[0] || "Football";
+      rawLeague = rawLeague.replace(' - Qualification','').trim();
 
-<div class="date-bar">
-<button onclick="setDate(-1)">Wed 07 Oct</button>
-<button onclick="setDate(-1)">Thu 08 Oct</button>
-<button class="active" onclick="setDate(0)">Today</button>
-<button onclick="setDate(1)">Sat 10 Oct</button>
-</div>
+      let country = 'WORLD';
+      let league = rawLeague;
 
-<div class="filter-bar">
-<button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
-<button id="f-live" class="live" onclick="setFilter('live')"><span class="dot"></span>LIVE</button>
-<button id="f-fin" onclick="setFilter('finished')">Finished</button>
-<button onclick="doRefresh()">↻ Refresh</button>
-</div>
+      // REAL COUNTRY + LEAGUE SEPARATION
+      const l = rawLeague.toLowerCase();
+      if(l.includes('english premier')){country='ENGLAND'; league='Premier League';}
+      else if(l.includes('english champ')){country='ENGLAND'; league='Championship';}
+      else if(l.includes('fa cup')){country='ENGLAND'; league='FA Cup';}
+      else if(l.includes('la liga')||l.includes('spanish')){country='SPAIN'; league='LaLiga';}
+      else if(l.includes('bundesliga')){country='GERMANY'; league='Bundesliga';}
+      else if(l.includes('serie a')){country='ITALY'; league='Serie A';}
+      else if(l.includes('ligue 1')){country='FRANCE'; league='Ligue 1';}
+      else if(l.includes('eredivisie')){country='NETHERLANDS'; league='Eredivisie';}
+      else if(l.includes('primeira')||l.includes('portuguese')){country='PORTUGAL'; league='Liga Portugal';}
+      else if(l.includes('saudi pro')){country='SAUDI ARABIA'; league='Pro League';}
+      else if(l.includes('mls')||l.includes('major league')){country='USA'; league='MLS';}
+      else if(l.includes('uefa champions')){country='EUROPE'; league='Champions League';}
+      else if(l.includes('europa')){country='EUROPE'; league='Europa League';}
+      else { // Fallback: first word as country
+        const parts = rawLeague.split(' ');
+        if(parts.length>1){country=parts[0].toUpperCase(); league=parts.slice(1).join(' ');}
+      }
 
-<div id="content"><div class="loading">Loading...</div></div>
-
-<script>
-let allData=[], currentFilter='all', currentDate='';
-function getISO(off){let d=new Date();d.setDate(d.getDate()+off);return d.toISOString().split('T')[0];}
-currentDate=getISO(0);
-function setDate(off){document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');currentDate=getISO(off);load(currentDate)}
-function setFilter(f){currentFilter=f;document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));document.getElementById(f==='all'?'f-all':f==='live'?'f-live':'f-fin').classList.add('active');render()}
-function doRefresh(){load(currentDate)}
-async function load(date){
- document.getElementById('content').innerHTML='<div class="loading">Loading '+date+'...</div>';
- try{const r=await fetch('/api/matches?date='+date);const j=await r.json();allData=j.data||[];render()}catch(e){document.getElementById('content').innerHTML='<div class="loading">Error</div>'}
+      return{
+        country, league,
+        homeTeam: h?.team?.displayName||'Home',
+        awayTeam: a?.team?.displayName||'Away',
+        homeScore: parseInt(h?.score)||0,
+        awayScore: parseInt(a?.score)||0,
+        minute: st==='in'?'LIVE' : st==='halftime'?'HT' : st==='post'?'FT' : new Date(ev.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+        isLive: st==='in'||st==='halftime',
+        isFinished: st==='post'
+      }
+    });
+    return res.status(200).json({data:games});
+  }catch(e){return res.status(200).json({data:[]})}
 }
-function render(){
- let data=allData;
- if(currentFilter==='live') data=data.filter(m=>m.isLive);
- if(currentFilter==='finished') data=data.filter(m=>m.isFinished);
- if(!data.length){document.getElementById('content').innerHTML='<div class="loading">No games</div>';return}
- // Group by Country + League like Flashscore but DARK
- const groups={};
- data.forEach(m=>{
-  let key=`${m.country} - ${m.league} (${m.league})`;
-  // Better key like WORLD - LEAGUE
-  key=`${m.country} - ${m.league}`.toUpperCase();
-  if(!groups[key]) groups[key]=[];
-  groups[key].push(m);
- });
- // Fix to WORLD - LEAGUE style
- let html='';
- for(const key in groups){
-  const count=groups[key].length;
-  html+=`<div class="league"><div class="league-head"><span>${key} (${count})</span></div>`;
-  groups[key].forEach(m=>{
-   const liveClass=m.isLive?'LIVE '+m.minute:m.minute;
-   const scoreClass=m.isLive?'live':'notlive';
-   html+=`<div class="match"><div class="match-left">${liveClass}</div><div class="match-center"><div class="team">⚽ ${m.homeTeam}</div><div class="team">⚽ ${m.awayTeam}</div></div><div class="score ${scoreClass}">${m.homeScore}-${m.awayScore}</div></div>`;
-  });
-  html+=`</div>`;
- }
- document.getElementById('content').innerHTML=html;
-}
-load(currentDate);
-setInterval(()=>load(currentDate),30000);
-</script>
-</body>
-</html>
