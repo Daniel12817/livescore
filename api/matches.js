@@ -1,15 +1,12 @@
-// HIGHLIGHTLY BASIC $0 - FREE - 100/day - CACHED
+// HIGHLIGHTLY BASIC $0 - FIXED NIGERIA TIME + FULL NAMES
 export default async function handler(req, res) {
-  // Cache for 5 minutes so you don't waste your 100 requests
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   const date = req.query.date || new Date().toISOString().split('T')[0];
   const API_KEY = process.env.HIGHLIGHTLY_API_KEY || process.env.HIGHLIGHTLY_KEY;
 
-  if (!API_KEY) {
-    return res.status(200).json({ data: [], error: "No API key" });
-  }
+  if (!API_KEY) return res.status(200).json({ data: [] });
 
   try {
     const r = await fetch(`https://soccer.highlightly.net/matches?date=${date}`, {
@@ -19,46 +16,50 @@ export default async function handler(req, res) {
         "x-rapidapi-host": "soccer.highlightly.net"
       }
     });
-
     const json = await r.json();
-
-    // For debugging - if you get limit error
-    if (json.message && json.message.includes("limit")) {
-      return res.status(200).json({ data: [], error: "Daily limit reached (100/day on FREE)" });
-    }
-
-    const raw = json.data || json.matches || json || [];
-
-    if (raw.length === 0) {
-      return res.status(200).json({ data: [] });
-    }
+    const raw = json.data || json.matches || [];
 
     const data = raw.map(item => {
       const m = item.match || item;
-      let hs = 0, as = 0;
-      const sc = m.state?.score?.current || m.score?.current || "";
-      if (sc && sc.includes("-")) {
-        const parts = sc.split("-");
-        hs = parseInt(parts[0].trim()) || 0;
-        as = parseInt(parts[1].trim()) || 0;
-      }
-      const desc = (m.state?.description || m.status || "").toLowerCase();
-      const isLive = desc.includes("live") || desc.includes("1st") || desc.includes("2nd") || desc.includes("progress");
-      const isHT = desc.includes("half");
-      const isFinished = desc.includes("finish") || desc.includes("ft") || desc.includes("full");
 
+      let hs = 0, as = 0;
+      const sc = m.state?.score?.current || "";
+      if (sc && sc.includes("-")) {
+        const p = sc.split("-");
+        hs = parseInt(p[0]) || 0;
+        as = parseInt(p[1]) || 0;
+      }
+
+      // FIXED TIME: Convert to Nigeria / Lagos time (WAT UTC+1) - same as flashscore.mobi
+      let timeEU = "00:00";
+      if (m.date) {
+        const d = new Date(m.date);
+        timeEU = d.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Africa/Lagos' // <-- FIX: Nigeria time, so 21:00 go match flashscore
+        });
+      }
+
+      const desc = (m.state?.description || "").toLowerCase();
       return {
         country: m.country?.name || m.league?.country || "WORLD",
         league: m.league?.name || "LEAGUE",
         leagueId: m.league?.id || 1,
         season: 2025,
-        homeTeam: m.homeTeam?.name || m.homeTeam || "Home",
-        awayTeam: m.awayTeam?.name || m.awayTeam || "Away",
+        // FIXED FULL CLUB NAME: use full name, not short
+        homeTeam: m.homeTeam?.name || m.homeTeam?.fullName || m.homeTeam || "Home",
+        awayTeam: m.awayTeam?.name || m.awayTeam?.fullName || m.awayTeam || "Away",
+        homeLogo: m.homeTeam?.logo || "",
+        awayLogo: m.awayTeam?.logo || "",
         homeScore: hs,
         awayScore: as,
-        timeEU: m.date? new Date(m.date).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', hour12:false}) : "00:00",
-        status: isLive? "LIVE" : isHT? "HT" : isFinished? "FT" : "NS",
-        isLive, isHT, isFinished,
+        timeEU: timeEU,
+        status: desc.includes("live")? "LIVE" : desc.includes("finish")? "FT" : "NS",
+        isLive: desc.includes("live"),
+        isHT: desc.includes("half"),
+        isFinished: desc.includes("finish"),
         elapsed: m.state?.description || ""
       };
     });
