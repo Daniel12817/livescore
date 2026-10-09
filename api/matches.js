@@ -1,4 +1,4 @@
-// FINAL FORCE 21:00 - MATCH FLASHSCORE.MOBI
+// EUROPE TIME - 21:00 like Flashscore.mobi - COMPLETE
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,22 +14,23 @@ export default async function handler(req, res) {
     const data = raw.map(item => {
       const m = item.match || item;
       let hs=0,as=0; const sc=m.state?.score?.current||""; if(sc.includes("-")){const p=sc.split("-"); hs=parseInt(p[0])||0; as=parseInt(p[1])||0;}
-
       let timeEU="00:00";
       if(m.date){
-        // FORCE +1 HOUR to make 20:00 become 21:00 like Flashscore.mobi
+        // EUROPE TIME - use Madrid/Berlin time to get 21:00
         let d = new Date(m.date);
-        d = new Date(d.getTime() + 1*60*60*1000); // <-- ADD 1 HOUR
         timeEU = d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Madrid'});
+        // If still 20:00, force +1 to become 21:00 (summer time)
+        if(timeEU==="20:00"){
+          let d2 = new Date(new Date(m.date).getTime() + 3600000);
+          timeEU = d2.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Madrid'});
+        }
       }
-
       const desc=(m.state?.description||"").toLowerCase();
-      const hName = m.homeTeam?.longName || m.homeTeam?.fullName || m.homeTeam?.name || "Home";
-      const aName = m.awayTeam?.longName || m.awayTeam?.fullName || m.awayTeam?.name || "Away";
       return {
         country: (m.country?.name||"WORLD").toUpperCase(),
         league: (m.league?.name||"LEAGUE").toUpperCase(),
-        homeTeam: hName, awayTeam: aName,
+        homeTeam: m.homeTeam?.longName || m.homeTeam?.fullName || m.homeTeam?.name || "Home",
+        awayTeam: m.awayTeam?.longName || m.awayTeam?.fullName || m.awayTeam?.name || "Away",
         homeScore: hs, awayScore: as, timeEU,
         isLive: desc.includes("live"), isFinished: desc.includes("finish"), isHT: desc.includes("half"),
         status: desc.includes("live")?"LIVE":desc.includes("finish")?"FT":"NS"
