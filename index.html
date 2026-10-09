@@ -6,26 +6,30 @@
 <title>Nielking Livescore</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a2e2b;color:#fff;font-family:Arial}
-.top{background:#1b4332;padding:12px;text-align:center;font-weight:bold;font-size:18px}
-.advert{margin:8px;padding:10px;text-align:center;border-radius:6px;font-weight:bold;cursor:pointer}
-.ad1{background:#ffcc00;color:#000;border:2px dashed #000}
-.ad2{background:#00d4ff;color:#000}
-.date-bar{display:flex;gap:8px;padding:10px}
-.date-bar button{flex:1;background:#1e3d3a;border:none;color:#00d4ff;padding:10px;border-radius:10px;font-weight:bold;cursor:pointer}
-.date-bar button.active{background:#00d4ff;color:#000}
+body{background:#121212;color:#fff;font-family:Arial}
+.top{background:#1f3d2b;padding:14px;text-align:center;font-weight:bold;font-size:18px;letter-spacing:1px}
+.advert{margin:8px 10px;padding:10px;text-align:center;border-radius:6px;font-weight:bold;cursor:pointer;font-size:14px}
+.ad1{background:#ffcc00;color:#000}
+.ad2{background:#00c8ff;color:#000}
+.date-bar{display:flex;gap:8px;padding:10px;overflow-x:auto}
+.date-bar button{background:#2a2a2a;border:none;color:#aaa;padding:8px 16px;border-radius:20px;white-space:nowrap;cursor:pointer;font-size:13px}
+.date-bar button.active{background:#e53935;color:#fff}
 .filter-bar{display:flex;gap:8px;padding:0 10px 10px}
-.filter-bar button{flex:1;background:#1e3d3a;border:none;color:#ccc;padding:10px;border-radius:10px;font-size:13px;font-weight:bold;cursor:pointer}
-.filter-bar button.active{background:#00d4ff;color:#000}
-.league{margin:8px;background:#fff;border-radius:6px;overflow:hidden;color:#000}
-.league-head{background:#0f2e2b;color:#fff;padding:8px 10px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center}
-.standings{border:1px solid #00ff88;color:#00ff88;padding:2px 10px;border-radius:15px;font-size:11px}
-.match{display:flex;justify-content:space-between;align-items:center;padding:10px;border-top:1px solid #eee;font-size:14px}
-.time{color:#ff3b30;font-size:13px;min-width:45px;font-weight:bold}
-.time.finished{color:#666}
-.score{font-weight:bold;color:#000}
-.score.live{color:#ff3b30}
-.loading{padding:40px;text-align:center;color:#ccc}
+.filter-bar button{flex:1;background:#2a2a2a;border:none;color:#aaa;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.filter-bar button.active{background:#fff;color:#000}
+.filter-bar button.live-active{background:#2a2a2a;color:#fff;border:1px solid #e53935}
+.dot{width:8px;height:8px;background:#e53935;border-radius:50%;display:inline-block;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.league{margin:10px 8px;background:#1e1e1e;border-radius:8px;overflow:hidden}
+.league-head{background:#2a2a2a;color:#ccc;padding:10px 12px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;letter-spacing:0.5px}
+.match{display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid #2a2a2a;font-size:14px}
+.match-left{color:#888;font-size:12px;min-width:75px}
+.match-center{flex:1;padding:0 10px;line-height:1.6}
+.team{display:flex;align-items:center;gap:6px}
+.score{padding:6px 12px;border-radius:6px;font-weight:bold;min-width:38px;text-align:center;font-size:14px}
+.score.live{background:#e53935;color:#fff}
+.score.notlive{background:#2a2a2a;color:#fff}
+.loading{padding:40px;text-align:center;color:#888}
 </style>
 </head>
 <body>
@@ -34,38 +38,39 @@ body{background:#0a2e2b;color:#fff;font-family:Arial}
 <div class="advert ad2" onclick="window.open('https://wa.me/2348100000000','_blank')">💰 ADVERT 2 - WhatsApp Us 💰</div>
 
 <div class="date-bar">
-<button class="active" id="d-today" onclick="setDate('today')">Today</button>
-<button id="d-yest" onclick="setDate('yest')">Yesterday</button>
-<button id="d-tom" onclick="setDate('tom')">Tomorrow</button>
+<button onclick="setDate(-2)">Wed 07 Oct</button>
+<button onclick="setDate(-1)">Thu 08 Oct</button>
+<button class="active" id="todayBtn" onclick="setDate(0)">Today</button>
+<button onclick="setDate(1)">Sat 10 Oct</button>
+<button onclick="setDate(2)">Sun 11 Oct</button>
 </div>
 
 <div class="filter-bar">
 <button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
-<button id="f-live" onclick="setFilter('live')">LIVE</button>
+<button id="f-live" onclick="setFilter('live')"><span class="dot"></span> LIVE</button>
 <button id="f-fin" onclick="setFilter('finished')">Finished</button>
-<button id="f-ref" onclick="doRefresh()">↻ REFRESH</button>
+<button onclick="doRefresh()">↻ Refresh</button>
 </div>
 
 <div id="content"><div class="loading">Loading...</div></div>
 
 <script>
-let allData=[], currentFilter='all', currentDateISO='';
+let allData=[], currentFilter='all', currentDateISO='', autoSec=60;
 function getISO(o){let d=new Date();d.setDate(d.getDate()+o);return d.toISOString().split('T')[0];}
 currentDateISO=getISO(0);
-function setDate(type){
+function setDate(offset){
  document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
- if(type==='today'){currentDateISO=getISO(0);document.getElementById('d-today').classList.add('active');}
- if(type==='yest'){currentDateISO=getISO(-1);document.getElementById('d-yest').classList.add('active');}
- if(type==='tom'){currentDateISO=getISO(1);document.getElementById('d-tom').classList.add('active');}
+ event.target.classList.add('active');
+ currentDateISO=getISO(offset);
  loadMatches(currentDateISO);
 }
 function setFilter(f){
  currentFilter=f;
- document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));
- if(f==='all')document.getElementById('f-all').classList.add('active');
- if(f==='live')document.getElementById('f-live').classList.add('active');
- if(f==='finished')document.getElementById('f-fin').classList.add('active');
- doRefresh();
+ document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active','live-active'));
+ if(f==='all') document.getElementById('f-all').classList.add('active');
+ if(f==='live') document.getElementById('f-live').classList.add('live-active');
+ if(f==='finished') document.getElementById('f-fin').classList.add('active');
+ render();
 }
 function doRefresh(){loadMatches(currentDateISO);}
 async function loadMatches(date){
@@ -75,7 +80,7 @@ async function loadMatches(date){
   const json=await res.json();
   allData=json.data||[];
   render();
- }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error ${e.message}</div>`;}
+ }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error</div>`;}
 }
 function render(){
  let data=allData;
@@ -84,24 +89,33 @@ function render(){
  if(!data.length){document.getElementById('content').innerHTML=`<div class="loading">No ${currentFilter} games</div>`;return;}
  const groups={};
  data.forEach(m=>{
-  const key=`${m.country}: ${m.league}`;
-  if(!groups[key]) groups[key]=[];
-  groups[key].push(m);
+  const key=`${m.country} - ${m.league} (${data.length})`;
+  const shortKey=`${m.country} - ${m.league}`;
+  if(!groups[shortKey]) groups[shortKey]=[];
+  groups[shortKey].push(m);
  });
  let html='';
  for(const key in groups){
   const ms=groups[key];
-  html+=`<div class="league"><div class="league-head"><span>${key.toUpperCase()}</span><span class="standings">Standings</span></div>`;
+  html+=`<div class="league"><div class="league-head"><span>${key.toUpperCase()}</span><span style="color:#666">▼</span></div>`;
   ms.forEach(m=>{
-   const isLiveClass = m.isFinished? 'finished' : '';
-   html+=`<div class="match"><div class="time ${isLiveClass}">${m.minute}</div><div style="flex:1;text-align:center">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
+   const liveText = m.isLive? `LIVE ${m.minute}` : m.minute;
+   const scoreClass = m.isLive? 'live' : 'notlive';
+   html+=`<div class="match">
+     <div class="match-left">${liveText}</div>
+     <div class="match-center">
+       <div class="team">${m.homeTeam}</div>
+       <div class="team">${m.awayTeam}</div>
+     </div>
+     <div class="score ${scoreClass}">${m.homeScore}-${m.awayScore}</div>
+   </div>`;
   });
   html+=`</div>`;
  }
  document.getElementById('content').innerHTML=html;
 }
 loadMatches(currentDateISO);
-setInterval(()=>loadMatches(currentDateISO), 30000);
+setInterval(()=>{autoSec--; if(autoSec<=0){autoSec=60; loadMatches(currentDateISO);} },1000);
 </script>
 </body>
 </html>
