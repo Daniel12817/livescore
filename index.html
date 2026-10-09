@@ -3,28 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nielking Livescore - All Leagues</title>
+<title>Nielking Livescore - ALL LEAGUES</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial,sans-serif;background:#0e1116;color:#fff}
-.header{background:#161a23;padding:12px;text-align:center;position:sticky;top:0;z-index:10;border-bottom:2px solid #ff3b30}
+body{background:#0e1116;color:#fff;font-family:Arial,sans-serif}
+.header{background:#161a23;padding:14px;text-align:center;border-bottom:2px solid #ff3b30;position:sticky;top:0;z-index:10}
 .header h1{color:#ff3b30;font-size:20px}
 .date-bar{display:flex;gap:6px;padding:10px;background:#161a23;overflow-x:auto}
-.date-bar button{background:#222834;border:1px solid #333;color:#ccc;padding:8px 14px;border-radius:20px;white-space:nowrap;cursor:pointer}
+.date-bar button{background:#222834;border:1px solid #333;color:#aaa;padding:8px 14px;border-radius:20px;cursor:pointer;white-space:nowrap}
 .date-bar button.active{background:#ff3b30;color:#fff;border-color:#ff3b30}
-.league-group{margin:10px 6px;background:#1a1f2b;border-radius:10px;overflow:hidden}
-.league-head{background:#222834;padding:10px 12px;display:flex;align-items:center;font-weight:bold;font-size:13px;color:#ccc;text-transform:uppercase}
-.league-logo{width:18px;height:18px;margin-right:8px;object-fit:contain}
+.league{margin:10px 6px;background:#1a1f2b;border-radius:10px;overflow:hidden}
+.league-head{background:#222834;padding:10px 12px;font-weight:bold;font-size:13px;display:flex;align-items:center;color:#ccc}
+.league-logo{width:20px;height:20px;margin-right:8px;object-fit:contain}
 .match{display:flex;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid #252b3a}
-.match:first-child{border-top:none}
-.time{font-size:12px;color:#8a93a8;min-width:50px}
-.teams{flex:1;margin-left:10px;font-size:14px;display:flex;flex-direction:column;gap:4px}
-.team{display:flex;align-items:center;gap:6px}
-.team-logo{width:18px;height:18px;object-fit:contain;border-radius:2px}
-.score{font-weight:bold;min-width:40px;text-align:center;background:#222834;padding:4px 8px;border-radius:6px}
-.live{color:#ff3b30;animation:blink 1s infinite}
-@keyframes blink{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
-.loading{text-align:center;padding:40px;color:#888}
+.time{font-size:12px;color:#8a93a8;min-width:60px}
+.teams{flex:1;margin-left:10px;font-size:14px}
+.team{display:flex;align-items:center;gap:6px;margin:3px 0}
+.team-logo{width:18px;height:18px;object-fit:contain}
+.score{background:#222834;padding:5px 10px;border-radius:6px;font-weight:bold;min-width:45px;text-align:center}
+.loading{padding:50px;text-align:center;color:#777}
+.live{color:#ff3b30;font-weight:bold}
 </style>
 </head>
 <body>
@@ -33,19 +31,70 @@ body{font-family:Arial,sans-serif;background:#0e1116;color:#fff}
 <div id="content"><div class="loading">Loading all leagues...</div></div>
 
 <script>
-const dateBar = document.getElementById('dateBar');
-const content = document.getElementById('content');
+const dateBar=document.getElementById('dateBar');
+const content=document.getElementById('content');
+let todayISO='';
 
-// Create 7 days bar
-for(let i=-2;i<=4;i++){
-  const d=new Date(); d.setDate(d.getDate()+i);
-  const iso=d.toISOString().split('T')[0];
-  const btn=document.createElement('button');
-  btn.textContent = i===0? 'Today' : d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
-  if(i===0) btn.className='active';
-  btn.onclick=()=>{document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); loadMatches(iso);};
-  dateBar.appendChild(btn);
-  if(i===0) window.todayISO=iso;
+function makeBar(){
+  for(let i=-2;i<=4;i++){
+    const d=new Date(); d.setDate(d.getDate()+i);
+    const iso=d.toISOString().split('T')[0];
+    const btn=document.createElement('button');
+    btn.textContent = i===0? 'Today' : d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+    if(i===0){btn.className='active'; todayISO=iso;}
+    btn.onclick=()=>{
+      document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      loadMatches(iso);
+    };
+    dateBar.appendChild(btn);
+  }
 }
 
-async function loadMatches(dateISO
+async function loadMatches(dateISO){
+  content.innerHTML=`<div class="loading">Loading ${dateISO}...</div>`;
+  try{
+    const res=await fetch(`/api/matches?date=${dateISO}`);
+    const json=await res.json();
+    const data=json.data||[];
+    if(!data.length){content.innerHTML=`<div class="loading">No matches for ${dateISO}</div>`;return;}
+
+    const groups={};
+    data.forEach(m=>{
+      const key=`${m.country} | ${m.league}`;
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(m);
+    });
+
+    let html='';
+    for(const key in groups){
+      const matches=groups[key];
+      const f=matches[0];
+      html+=`<div class="league">
+        <div class="league-head">
+          <img src="${f.leagueLogo}" class="league-logo" onerror="this.style.display='none'">
+          ${f.country} - ${f.league} (${matches.length})
+        </div>`;
+      matches.forEach(m=>{
+        html+=`<div class="match">
+          <div class="time ${m.isLive?'live':''}">${m.isLive?'LIVE':''} ${m.timeEU}</div>
+          <div class="teams">
+            <div class="team"><img src="${m.homeLogo}" class="team-logo" onerror="this.style.display='none'"><span>${m.homeTeam}</span></div>
+            <div class="team"><img src="${m.awayLogo}" class="team-logo" onerror="this.style.display='none'"><span>${m.awayTeam}</span></div>
+          </div>
+          <div class="score">${m.homeScore}-${m.awayScore}</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    content.innerHTML=html;
+  }catch(e){
+    content.innerHTML=`<div class="loading">Error: ${e.message}</div>`;
+  }
+}
+
+makeBar();
+loadMatches(todayISO);
+</script>
+</body>
+</html>
