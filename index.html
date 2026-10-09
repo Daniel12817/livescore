@@ -1,81 +1,20 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nielking Livescore</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#121212;color:#fff;font-family:Arial}
-.top{background:#1b4332;padding:14px;text-align:center;font-weight:bold;font-size:18px}
-.advert{margin:8px 10px;padding:10px;text-align:center;border-radius:6px;font-weight:bold;cursor:pointer}
-.ad1{background:#ffcc00;color:#000}
-.ad2{background:#00d4ff;color:#000}
-.date-bar{display:flex;gap:6px;padding:10px;overflow-x:auto}
-.date-bar button{background:#2a2a2a;border:none;color:#aaa;padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;white-space:nowrap}
-.date-bar button.active{background:#e53935;color:#fff}
-.filter-bar{display:flex;gap:6px;padding:0 10px 10px}
-.filter-bar button{flex:1;background:#2a2a2a;border:none;color:#aaa;padding:10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer}
-.filter-bar button.active{background:#fff;color:#000}
-.filter-bar button.live-active{border:1px solid #e53935;color:#fff}
-.dot{width:7px;height:7px;background:#e53935;border-radius:50%;display:inline-block;margin-right:4px}
-.league{margin:10px 8px;background:#1e1e1e;border-radius:8px;overflow:hidden}
-.league-head{background:#000;color:#fff;padding:10px 12px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}
-.league-head span:last-child{text-decoration:underline;font-weight:normal;text-transform:none;color:#ccc;cursor:pointer}
-.match{display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid #2a2a2a}
-.match-left{color:#888;font-size:12px;min-width:70px}
-.match-center{flex:1;padding:0 10px;font-size:14px;line-height:1.7}
-.team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.score{padding:6px 12px;border-radius:6px;font-weight:bold;min-width:40px;text-align:center}
-.score.live{background:#e53935;color:#fff}
-.score.notlive{background:#2a2a2a;color:#fff}
-.loading{padding:40px;text-align:center;color:#888}
-</style>
-</head>
-<body>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nielking Livescore</title>
+<style>body{margin:0;background:#fff;color:#000;font-family:Arial;font-size:13px}.top{background:#1b4332;color:#fff;padding:12px;text-align:center;font-weight:bold}.ad{margin:6px;padding:8px;text-align:center;font-weight:bold}.ad1{background:#ffcc00}.ad2{background:#00d4ff}.date{display:flex;background:#eee}.date button{flex:1;padding:8px;border:1px solid #ccc;background:#fff}.date button.active{background:#000;color:#fff}.filt{display:flex}.filt button{flex:1;padding:8px;border:1px solid #ccc;background:#fff;font-weight:bold}.filt button.active{background:#000;color:#fff}.league{background:#000;color:#fff;padding:6px 8px;display:flex;justify-content:space-between;font-weight:bold;text-transform:uppercase}.match{padding:6px 8px;border-bottom:1px solid #ddd;display:flex;gap:8px}.live{color:red;font-weight:bold}</style></head><body>
 <div class="top">⚽ NIELKING LIVESCORE</div>
-<div class="advert ad1" onclick="window.open('https://wa.me/2348100000000','_blank')">🔥 ADVERT 1 - CLICK HERE 🔥</div>
-<div class="advert ad2" onclick="window.open('https://wa.me/2348100000000','_blank')">💰 ADVERT 2 - WhatsApp Us 💰</div>
-
-<div class="date-bar">
-<button onclick="setDate(-1)">Yesterday</button>
-<button class="active" id="todayBtn" onclick="setDate(0)">Today</button>
-<button onclick="setDate(1)">Tomorrow</button>
-</div>
-
-<div class="filter-bar">
-<button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
-<button id="f-live" onclick="setFilter('live')"><span class="dot"></span>LIVE</button>
-<button id="f-fin" onclick="setFilter('finished')">Finished</button>
-<button onclick="doRefresh()">↻ REFRESH</button>
-</div>
-
-<div id="content"><div class="loading">Loading...</div></div>
-
+<div class="ad ad1">ADVERT 1 - CLICK HERE</div>
+<div class="ad ad2">WhatsApp Us</div>
+<div class="date"><button onclick="setDate(-1)">Yesterday</button><button class="active" onclick="setDate(0)">Today</button><button onclick="setDate(1)">Tomorrow</button></div>
+<div class="filt"><button class="active" id="a" onclick="fil('all')">All</button><button id="l" onclick="fil('live')">LIVE</button><button id="f" onclick="fil('finished')">Finished</button><button onclick="load()">↻</button></div>
+<div id="c" style="padding:20px;text-align:center">Loading...</div>
 <script>
-let allData=[], currentFilter='all', currentDateISO='';
-function getISO(o){let d=new Date();d.setDate(d.getDate()+o);return d.toISOString().split('T')[0];}
-currentDateISO=getISO(0);
-function setDate(off){
- document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
- event.target.classList.add('active');
- currentDateISO=getISO(off);
- loadMatches(currentDateISO);
-}
-function setFilter(f){
- currentFilter=f;
- document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active','live-active'));
- if(f==='all') document.getElementById('f-all').classList.add('active');
- if(f==='live') document.getElementById('f-live').classList.add('live-active');
- if(f==='finished') document.getElementById('f-fin').classList.add('active');
- render();
-}
-function doRefresh(){loadMatches(currentDateISO);}
-async function loadMatches(date){
- document.getElementById('content').innerHTML=`<div class="loading">Loading ${date}...</div>`;
- try{
-  const res=await fetch(`/api/matches?date=${date}`);
-  const json=await res.json();
-  allData=json.data||[];
-  render();
- }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error</div>`
+let all=[],f='all',d=new Date().toISOString().split('T')[0];
+function setDate(o){let x=new Date();x.setDate(x.getDate()+o);d=x.toISOString().split('T')[0];load()}
+function fil(v){f=v;document.querySelectorAll('.filt button').forEach(b=>b.classList.remove('active'));document.getElementById(v==='all'?'a':v==='live'?'l':'f').classList.add('active');render()}
+async function load(){document.getElementById('c').innerHTML='Loading...';try{let r=await fetch('/api/matches?date='+d);let j=await r.json();all=j.data||[];render()}catch(e){document.getElementById('c').innerHTML='Error loading'}}
+function render(){let data=all;if(f==='live')data=data.filter(x=>x.isLive);if(f==='finished')data=data.filter(x=>x.isFinished);if(!data.length){document.getElementById('c').innerHTML='No games';return}
+let g={};data.forEach(m=>{let k=m.country+': '+m.league;if(!g[k])g[k]=[];g[k].push(m)});
+let h='';for(let k in g){h+=`<div class="league"><span>${k}</span><span style="text-decoration:underline">Standings</span></div>`;g[k].forEach(m=>{h+=`<div class="match"><span class="${m.isLive?'live':''}">${m.minute}</span><span>${m.homeTeam} - ${m.awayTeam} - ${m.homeScore}-${m.awayScore}</span></div>`})}
+document.getElementById('c').innerHTML=h}
+load();
+</script></body></html>
