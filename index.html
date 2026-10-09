@@ -1,94 +1,51 @@
 <!DOCTYPE html>
-<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nielking Livescore - All Leagues</title>
 <style>
-body{margin:0;padding:0;font-family:Arial;background:#0d5a3a;color:#fff;overflow-x:hidden}
-.top{background:#0d5a3a;color:#fff;text-align:center;padding:12px;font-weight:bold;width:100%;box-sizing:border-box}
-.bar{display:flex;gap:6px;padding:6px 10px;background:#073422;overflow:auto;width:100%;box-sizing:border-box}
-.bar button{padding:7px 12px;border-radius:12px;border:none;white-space:nowrap;font-weight:bold;background:#1a5a3a;color:#fff}
-.bar .active{background:#00d084;color:#000}
-.bar2{display:flex;gap:6px;padding:6px 10px;background:#0f2942;border-top:1px solid #1a5a5a;width:100%;box-sizing:border-box}
-.bar2 button{padding:6px 10px;border-radius:10px;border:none;font-weight:bold;font-size:13px;background:#1a1a1a;color:#fff}
-.bar2 button.active{border:2px solid #00d084;background:#fff;color:#000}
-#box{width:100%;box-sizing:border-box;padding:0;margin:0;background:#f5f5f5;min-height:400px}
-.league{background:#e7e7e7;color:#333;padding:6px 10px;font-weight:bold;font-size:13px;border-top:1px solid #ccc;display:flex;justify-content:space-between}
-.match{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #ddd;background:#fff;color:#000;font-size:14px}
-.t{color:#0044ff;font-weight:bold;min-width:50px}
-.s{color:#ff0000;font-weight:bold}
-#pop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99}
-#popBox{background:#fff;color:#000;border-radius:10px;padding:15px;max-width:500px;margin:20px auto}
-</style></head><body>
-
-<div class="top">⚽ NIELKING LIVESCORE ⚽</div>
-
-<a href="https://wa.me/2349130441227?text=Hello%20I%20want%20to%20advertise%20on%20Nielking" style="display:block;background:#ffcc00;color:#000;text-align:center;padding:10px 0;font-weight:bold;text-decoration:none;width:100%;box-sizing:border-box">📢 ADVERTISE HERE - 150x300 - Click to Chat on WhatsApp</a>
-
-<a href="https://wa.me/2349130441227?text=Hello%20I%20want%20to%20advertise" style="display:block;background:#e6004c;color:#fff;text-align:center;padding:10px 0;font-weight:bold;text-decoration:none;width:100%;box-sizing:border-box">📢 ADVERTISE HERE - 728x90 - Click to Chat</a>
-
-<div class="bar">
-<button id="t1" class="active" onclick="setD('today')">Today</button>
-<button id="t2" onclick="setD('yesterday')">Yesterday</button>
-<button id="t3" onclick="setD('tomorrow')">Tomorrow</button>
-</div>
-
-<div class="bar2">
-<button id="b1" class="active" style="background:#1a1a1a;color:#00d4ff" onclick="setF('all')">All Games</button>
-<button id="b2" style="background:#1a1a1a;color:#333" onclick="setF('live')">LIVE</button>
-<button id="b3" style="background:#00d4ff;color:#000" onclick="setF('finished')">Finished</button>
-<button id="b2r" style="background:#00d4ff;color:#000" onclick="loadData()">↻ REFRESH</button>
-</div>
-
-<div id="box"></div>
-<div id="pop"><div id="popBox"></div></div>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#0e1116;color:#fff}
+.header{background:#161a23;padding:12px;text-align:center;position:sticky;top:0;z-index:10;border-bottom:2px solid #ff3b30}
+.header h1{color:#ff3b30;font-size:20px}
+.date-bar{display:flex;gap:6px;padding:10px;background:#161a23;overflow-x:auto}
+.date-bar button{background:#222834;border:1px solid #333;color:#ccc;padding:8px 14px;border-radius:20px;white-space:nowrap;cursor:pointer}
+.date-bar button.active{background:#ff3b30;color:#fff;border-color:#ff3b30}
+.league-group{margin:10px 6px;background:#1a1f2b;border-radius:10px;overflow:hidden}
+.league-head{background:#222834;padding:10px 12px;display:flex;align-items:center;font-weight:bold;font-size:13px;color:#ccc;text-transform:uppercase}
+.league-logo{width:18px;height:18px;margin-right:8px;object-fit:contain}
+.match{display:flex;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid #252b3a}
+.match:first-child{border-top:none}
+.time{font-size:12px;color:#8a93a8;min-width:50px}
+.teams{flex:1;margin-left:10px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.team{display:flex;align-items:center;gap:6px}
+.team-logo{width:18px;height:18px;object-fit:contain;border-radius:2px}
+.score{font-weight:bold;min-width:40px;text-align:center;background:#222834;padding:4px 8px;border-radius:6px}
+.live{color:#ff3b30;animation:blink 1s infinite}
+@keyframes blink{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+.loading{text-align:center;padding:40px;color:#888}
+</style>
+</head>
+<body>
+<div class="header"><h1>Nielking Livescore ⚽ ALL LEAGUES</h1></div>
+<div class="date-bar" id="dateBar"></div>
+<div id="content"><div class="loading">Loading all leagues...</div></div>
 
 <script>
-const TOP="ENGLAND, PREMIER LEAGUE, SPAIN: LA LIGA, ITALY: SERIE A, GERMANY: BUNDESLIGA";
-let curD="today", curF="all", all=[];
+const dateBar = document.getElementById('dateBar');
+const content = document.getElementById('content');
 
-function getDS(t){let d=new Date(); if(t=="yesterday")d.setDate(d.getDate()-1); if(t=="tomorrow")d.setDate(d.getDate()+1); return d.toISOString().split('T')[0];}
-
-function setD(t){
-  curD=t; document.getElementById('t1').classList.toggle('active',t=='today'); document.getElementById('t2').classList.toggle('active',t=='yesterday'); document.getElementById('t3').classList.toggle('active',t=='tomorrow');
-  loadData();
-}
-function setF(f){curF=f; render();}
-
-async function loadData(){
-  document.getElementById('box').innerHTML='<div style="padding:30px;text-align:center;color:#333">Loading matches... ⚽</div>';
-  let ds=getDS(curD);
-  try{
-    let r=await fetch('/api/matches?date='+ds);
-    let j=await r.json();
-    all=j.data||[];
-    render();
-  }catch(e){
-    document.getElementById('box').innerHTML='<div style="padding:30px;color:red;text-align:center">No matches found for '+ds+'. Try Refresh.</div>';
-  }
+// Create 7 days bar
+for(let i=-2;i<=4;i++){
+  const d=new Date(); d.setDate(d.getDate()+i);
+  const iso=d.toISOString().split('T')[0];
+  const btn=document.createElement('button');
+  btn.textContent = i===0? 'Today' : d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+  if(i===0) btn.className='active';
+  btn.onclick=()=>{document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); loadMatches(iso);};
+  dateBar.appendChild(btn);
+  if(i===0) window.todayISO=iso;
 }
 
-function render(){
-  let box=document.getElementById('box');
-  if(!all || all.length==0){box.innerHTML='<div style="padding:30px;text-align:center;color:#333">No matches today. Click REFRESH or try Yesterday/Tomorrow.<br><br>Free plan: 100 req/day - cached.</div>';return;}
-
-  let filtered=all;
-  if(curF=='live') filtered=all.filter(m=>m.isLive);
-  if(curF=='finished') filtered=all.filter(m=>m.isFinished);
-
-  // Group by league
-  let groups={};
-  filtered.forEach(m=>{let k=m.country+' - '+m.league; if(!groups[k])groups[k]=[]; groups[k].push(m);});
-
-  let html='';
-  for(let lg in groups){
-    html+='<div class="league"><span>'+lg+'</span><span>Standings</span></div>';
-    groups[lg].forEach(m=>{
-      let timeColor = m.isLive? 'color:red' : 'color:#0044ff';
-      let score = (m.homeScore!=null)? m.homeScore+' - '+m.awayScore : 'vs';
-      html+='<div class="match"><span><span class="t" style="'+timeColor+'">'+m.timeEU+'</span> '+m.homeTeam+' - '+m.awayTeam+'</span><span class="s">'+score+'</span></div>';
-    });
-  }
-  box.innerHTML=html || '<div style="padding:20px;color:#333">No '+curF+' matches.</div>';
-}
-
-loadData();
-</script>
-</body></html>
+async function loadMatches(dateISO
