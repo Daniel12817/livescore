@@ -1,115 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nielking Livescore ALL LEAGUES</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0e1116;color:#fff;font-family:Arial}
-.header{background:#161a23;padding:14px;text-align:center;border-bottom:2px solid #ff3b30;position:sticky;top:0;z-index:10}
-.header h1{color:#ff3b30;font-size:20px}
-.date-bar{display:flex;gap:6px;padding:10px;background:#161a23;overflow-x:auto}
-.date-bar button{background:#222834;border:1px solid #333;color:#aaa;padding:8px 14px;border-radius:20px;cursor:pointer;white-space:nowrap}
-.date-bar button.active{background:#ff3b30;color:#fff}
-.filter-bar{display:flex;gap:8px;padding:0 10px 10px;background:#161a23;align-items:center}
-.filter-bar button{background:#1a1f2b;border:1px solid #333;color:#aaa;padding:6px 14px;border-radius:15px;font-size:13px;cursor:pointer}
-.filter-bar button.active{background:#fff;color:#000;font-weight:bold}
-.refresh{margin-left:auto}
-.refresh span{background:#222834;padding:6px 12px;border-radius:12px;color:#ccc;cursor:pointer;border:1px solid #333}
-.league{margin:10px 6px;background:#1a1f2b;border-radius:10px;overflow:hidden}
-.league-head{background:#222834;padding:10px 12px;font-weight:bold;font-size:13px;display:flex;align-items:center;color:#ccc}
-.league-logo{width:20px;height:20px;margin-right:8px;object-fit:contain}
-.match{display:flex;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid #252b3a}
-.time{font-size:12px;color:#8a93a8;min-width:70px}
-.teams{flex:1;margin-left:10px;font-size:14px}
-.team{display:flex;align-items:center;gap:6px;margin:3px 0}
-.team-logo{width:18px;height:18px;object-fit:contain}
-.score{background:#222834;padding:5px 10px;border-radius:6px;font-weight:bold;min-width:45px;text-align:center}
-.score.live{background:#ff3b30;color:#fff}
-.loading{padding:50px;text-align:center;color:#777}
-</style>
-</head>
-<body>
-<div class="header"><h1>Nielking Livescore ⚽ ALL LEAGUES</h1></div>
-<div class="date-bar" id="dateBar"></div>
-<div class="filter-bar">
-  <button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
-  <button id="f-live" onclick="setFilter('live')">🔴 LIVE</button>
-  <button id="f-finished" onclick="setFilter('finished')">Finished</button>
-  <div class="refresh"><span onclick="doRefresh()">↻ Refresh</span></div>
-</div>
-<div id="content"><div class="loading">Loading all leagues...</div></div>
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
+  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const ymd = date.replace(/-/g,'');
+  let allGames = [];
+  const KEY = process.env.HIGHLIGHTLY_API_KEY || process.env.HIGHLIGHTLY_KEY || "";
 
-<script>
-let allData=[], currentDate='', currentFilter='all';
-const dateBar=document.getElementById('dateBar'), content=document.getElementById('content');
-
-function makeBar(){
-  for(let i=-2;i<=4;i++){
-    const d=new Date(); d.setDate(d.getDate()+i);
-    const iso=d.toISOString().split('T')[0];
-    const btn=document.createElement('button');
-    btn.textContent=i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
-    if(i===0){btn.className='active'; currentDate=iso;}
-    btn.onclick=()=>{
-      document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); currentDate=iso; loadMatches(iso);
-    };
-    dateBar.appendChild(btn);
-  }
-}
-
-function setFilter(f){
-  currentFilter=f;
-  document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('f-'+f).classList.add('active');
-  render();
-}
-
-function doRefresh(){ loadMatches(currentDate); }
-
-async function loadMatches(dateISO){
-  currentDate=dateISO;
-  content.innerHTML=`<div class="loading">Loading ${dateISO}...</div>`;
   try{
-    const res=await fetch(`/api/matches?date=${dateISO}`);
-    const json=await res.json();
-    allData=json.data||[];
-    allData.sort((a,b)=>{ if(a.isLive &&!b.isLive) return -1; if(!a.isLive && b.isLive) return 1; return 0;});
-    render();
-  }catch(e){ content.innerHTML=`<div class="loading">Error ${e.message}</div>`; }
-}
+    if(KEY){
+      const r = await fetch(`https://soccer.highlightly.net/matches?date=${date}`, {
+        headers: { "x-rapidapi-key": KEY, "x-api-key": KEY, "x-rapidapi-host": "soccer.highlightly.net" }
+      });
+      const text = await r.text();
+      try{
+        const j = JSON.parse(text);
+        const raw = j.data || j.matches || [];
+        raw.forEach(item=>{
+          const m=item.match||item;
+          let hs=0,as=0; const sc=m.state?.score?.current||"";
+          if(sc.includes("-")){ const p=sc.split("-"); hs=parseInt(p[0])||0; as=parseInt(p[1])||0; }
+          let timeEU="00:00"; try{ if(m.date){ timeEU=new Date(m.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Madrid'}); }}catch{}
+          const d=(m.state?.description||"").toLowerCase();
+          allGames.push({
+            country:(m.country?.name||"WORLD").toUpperCase(),
+            league:(m.league?.name||"LEAGUE").toUpperCase(),
+            leagueLogo:m.league?.logo||"",
+            homeTeam:m.homeTeam?.name||"Home",
+            awayTeam:m.awayTeam?.name||"Away",
+            homeLogo:m.homeTeam?.logo||"",
+            awayLogo:m.awayTeam?.logo||"",
+            homeScore:hs, awayScore:as, timeEU,
+            isLive:d.includes("live")||d.includes("half"),
+            isFinished:d.includes("finish")
+          });
+        });
+      }catch{}
+    }
+  }catch{}
 
-function render(){
-  let data=allData;
-  if(currentFilter==='live') data=data.filter(m=>m.isLive);
-  if(currentFilter==='finished') data=data.filter(m=>m.isFinished);
-
-  if(!data.length){content.innerHTML=`<div class="loading">No ${currentFilter} games</div>`;return;}
-
-  const groups={};
-  data.forEach(m=>{
-    const key=`${m.country} | ${m.league} | ${m.leagueLogo}`;
-    if(!groups[key]) groups[key]=[];
-    groups[key].push(m);
-  });
-
-  let html='';
-  for(const key in groups){
-    const matches=groups[key];
-    const [country,league,logo]=key.split(' | ');
-    html+=`<div class="league"><div class="league-head"><img src="${logo}" class="league-logo" onerror="this.style.display='none'">${country} - ${league} (${matches.length})</div>`;
-    matches.forEach(m=>{
-      html+=`<div class="match"><div class="time">${m.isLive?'LIVE':''} ${m.timeEU}</div><div class="teams"><div class="team"><img src="${m.homeLogo}" class="team-logo" onerror="this.style.display='none'">${m.homeTeam}</div><div class="team"><img src="${m.awayLogo}" class="team-logo" onerror="this.style.display='none'">${m.awayTeam}</div></div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
-    });
-    html+=`</div>`;
+  // Only use ESPN if Highlightly empty, and SINGLE CALL
+  if(allGames.length===0){
+    try{
+      const er = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard?dates=${ymd}`);
+      if(er.ok){
+        const ej = await er.json();
+        (ej.events||[]).forEach(ev=>{
+          const c=ev.competitions?.[0]; if(!c) return;
+          const home=c.competitors?.find(x=>x.homeAway==='home');
+          const away=c.competitors?.find(x=>x.homeAway==='away');
+          let timeEU="00:00"; try{ if(ev.date){ timeEU=new Date(ev.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Madrid'}); }}catch{}
+          allGames.push({
+            country:"WORLD", league:(ev.league?.name||"LEAGUE").toUpperCase(), leagueLogo:"",
+            homeTeam:home?.team?.displayName||"Home", awayTeam:away?.team?.displayName||"Away",
+            homeLogo:home?.team?.logo||"", awayLogo:away?.team?.logo||"",
+            homeScore:parseInt(home?.score)||0, awayScore:parseInt(away?.score)||0, timeEU,
+            isLive:c.status?.type?.state==='in', isFinished:c.status?.type?.state==='post'
+          });
+        });
+      }
+    }catch{}
   }
-  content.innerHTML=html;
-}
 
-makeBar();
-loadMatches(currentDate);
-</script>
-</body>
-</html>
+  // ALWAYS return JSON, never crash
+  return res.status(200).json({ data: allGames, count: allGames.length, date });
+}
