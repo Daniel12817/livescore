@@ -18,10 +18,11 @@ body{background:#0a2e2b;color:#fff;font-family:Arial}
 .filter-bar button{flex:1;background:#1e3d3a;border:none;color:#ccc;padding:10px;border-radius:10px;font-size:13px;font-weight:bold;cursor:pointer}
 .filter-bar button.active{background:#00d4ff;color:#000}
 .league{margin:8px;background:#fff;border-radius:6px;overflow:hidden;color:#000}
-.league-head{background:#0f2e2b;color:#fff;padding:8px 10px;font-size:13px;font-weight:bold;display:flex;justify-content:space-between;align-items:center}
+.league-head{background:#0f2e2b;color:#fff;padding:8px 10px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center}
 .standings{border:1px solid #00ff88;color:#00ff88;padding:2px 10px;border-radius:15px;font-size:11px}
 .match{display:flex;justify-content:space-between;align-items:center;padding:10px;border-top:1px solid #eee;font-size:14px}
-.time{color:#666;font-size:12px;min-width:60px;font-weight:bold}
+.time{color:#ff3b30;font-size:13px;min-width:45px;font-weight:bold}
+.time.finished{color:#666}
 .score{font-weight:bold;color:#000}
 .score.live{color:#ff3b30}
 .loading{padding:40px;text-align:center;color:#ccc}
@@ -64,9 +65,7 @@ function setFilter(f){
  if(f==='all')document.getElementById('f-all').classList.add('active');
  if(f==='live')document.getElementById('f-live').classList.add('active');
  if(f==='finished')document.getElementById('f-fin').classList.add('active');
- document.getElementById('f-ref').classList.add('active');
- setTimeout(()=>document.getElementById('f-ref').classList.remove('active'),200);
- render();
+ doRefresh();
 }
 function doRefresh(){loadMatches(currentDateISO);}
 async function loadMatches(date){
@@ -94,14 +93,15 @@ function render(){
   const ms=groups[key];
   html+=`<div class="league"><div class="league-head"><span>${key.toUpperCase()}</span><span class="standings">Standings</span></div>`;
   ms.forEach(m=>{
-   let timeDisplay = m.minute? m.minute : m.timeEU;
-   html+=`<div class="match"><div class="time" style="${m.isLive?'color:#ff3b30':''}">${timeDisplay}</div><div style="flex:1;text-align:center">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
+   const isLiveClass = m.isFinished? 'finished' : '';
+   html+=`<div class="match"><div class="time ${isLiveClass}">${m.minute}</div><div style="flex:1;text-align:center">${m.homeTeam} - ${m.awayTeam}</div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
   });
   html+=`</div>`;
  }
  document.getElementById('content').innerHTML=html;
 }
 loadMatches(currentDateISO);
+setInterval(()=>loadMatches(currentDateISO), 30000);
 </script>
 </body>
 </html>
