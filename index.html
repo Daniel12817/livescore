@@ -7,26 +7,26 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#121212;color:#fff;font-family:Arial}
-.top{background:#1f3d2b;padding:14px;text-align:center;font-weight:bold;font-size:18px;letter-spacing:1px}
-.advert{margin:8px 10px;padding:10px;text-align:center;border-radius:6px;font-weight:bold;cursor:pointer;font-size:14px}
+.top{background:#1b4332;padding:14px;text-align:center;font-weight:bold;font-size:18px}
+.advert{margin:8px 10px;padding:10px;text-align:center;border-radius:6px;font-weight:bold;cursor:pointer}
 .ad1{background:#ffcc00;color:#000}
-.ad2{background:#00c8ff;color:#000}
-.date-bar{display:flex;gap:8px;padding:10px;overflow-x:auto}
-.date-bar button{background:#2a2a2a;border:none;color:#aaa;padding:8px 16px;border-radius:20px;white-space:nowrap;cursor:pointer;font-size:13px}
+.ad2{background:#00d4ff;color:#000}
+.date-bar{display:flex;gap:6px;padding:10px;overflow-x:auto}
+.date-bar button{background:#2a2a2a;border:none;color:#aaa;padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;white-space:nowrap}
 .date-bar button.active{background:#e53935;color:#fff}
-.filter-bar{display:flex;gap:8px;padding:0 10px 10px}
-.filter-bar button{flex:1;background:#2a2a2a;border:none;color:#aaa;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.filter-bar{display:flex;gap:6px;padding:0 10px 10px}
+.filter-bar button{flex:1;background:#2a2a2a;border:none;color:#aaa;padding:10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer}
 .filter-bar button.active{background:#fff;color:#000}
-.filter-bar button.live-active{background:#2a2a2a;color:#fff;border:1px solid #e53935}
-.dot{width:8px;height:8px;background:#e53935;border-radius:50%;display:inline-block;animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.filter-bar button.live-active{border:1px solid #e53935;color:#fff}
+.dot{width:7px;height:7px;background:#e53935;border-radius:50%;display:inline-block;margin-right:4px}
 .league{margin:10px 8px;background:#1e1e1e;border-radius:8px;overflow:hidden}
-.league-head{background:#2a2a2a;color:#ccc;padding:10px 12px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;letter-spacing:0.5px}
-.match{display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid #2a2a2a;font-size:14px}
-.match-left{color:#888;font-size:12px;min-width:75px}
-.match-center{flex:1;padding:0 10px;line-height:1.6}
-.team{display:flex;align-items:center;gap:6px}
-.score{padding:6px 12px;border-radius:6px;font-weight:bold;min-width:38px;text-align:center;font-size:14px}
+.league-head{background:#000;color:#fff;padding:10px 12px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;text-transform:uppercase}
+.league-head span:last-child{text-decoration:underline;font-weight:normal;text-transform:none;color:#ccc;cursor:pointer}
+.match{display:flex;justify-content:space-between;align-items:center;padding:12px;border-top:1px solid #2a2a2a}
+.match-left{color:#888;font-size:12px;min-width:70px}
+.match-center{flex:1;padding:0 10px;font-size:14px;line-height:1.7}
+.team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score{padding:6px 12px;border-radius:6px;font-weight:bold;min-width:40px;text-align:center}
 .score.live{background:#e53935;color:#fff}
 .score.notlive{background:#2a2a2a;color:#fff}
 .loading{padding:40px;text-align:center;color:#888}
@@ -38,30 +38,28 @@ body{background:#121212;color:#fff;font-family:Arial}
 <div class="advert ad2" onclick="window.open('https://wa.me/2348100000000','_blank')">💰 ADVERT 2 - WhatsApp Us 💰</div>
 
 <div class="date-bar">
-<button onclick="setDate(-2)">Wed 07 Oct</button>
-<button onclick="setDate(-1)">Thu 08 Oct</button>
+<button onclick="setDate(-1)">Yesterday</button>
 <button class="active" id="todayBtn" onclick="setDate(0)">Today</button>
-<button onclick="setDate(1)">Sat 10 Oct</button>
-<button onclick="setDate(2)">Sun 11 Oct</button>
+<button onclick="setDate(1)">Tomorrow</button>
 </div>
 
 <div class="filter-bar">
 <button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
-<button id="f-live" onclick="setFilter('live')"><span class="dot"></span> LIVE</button>
+<button id="f-live" onclick="setFilter('live')"><span class="dot"></span>LIVE</button>
 <button id="f-fin" onclick="setFilter('finished')">Finished</button>
-<button onclick="doRefresh()">↻ Refresh</button>
+<button onclick="doRefresh()">↻ REFRESH</button>
 </div>
 
 <div id="content"><div class="loading">Loading...</div></div>
 
 <script>
-let allData=[], currentFilter='all', currentDateISO='', autoSec=60;
+let allData=[], currentFilter='all', currentDateISO='';
 function getISO(o){let d=new Date();d.setDate(d.getDate()+o);return d.toISOString().split('T')[0];}
 currentDateISO=getISO(0);
-function setDate(offset){
+function setDate(off){
  document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
  event.target.classList.add('active');
- currentDateISO=getISO(offset);
+ currentDateISO=getISO(off);
  loadMatches(currentDateISO);
 }
 function setFilter(f){
@@ -80,42 +78,4 @@ async function loadMatches(date){
   const json=await res.json();
   allData=json.data||[];
   render();
- }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error</div>`;}
-}
-function render(){
- let data=allData;
- if(currentFilter==='live') data=data.filter(m=>m.isLive);
- if(currentFilter==='finished') data=data.filter(m=>m.isFinished);
- if(!data.length){document.getElementById('content').innerHTML=`<div class="loading">No ${currentFilter} games</div>`;return;}
- const groups={};
- data.forEach(m=>{
-  const key=`${m.country} - ${m.league} (${data.length})`;
-  const shortKey=`${m.country} - ${m.league}`;
-  if(!groups[shortKey]) groups[shortKey]=[];
-  groups[shortKey].push(m);
- });
- let html='';
- for(const key in groups){
-  const ms=groups[key];
-  html+=`<div class="league"><div class="league-head"><span>${key.toUpperCase()}</span><span style="color:#666">▼</span></div>`;
-  ms.forEach(m=>{
-   const liveText = m.isLive? `LIVE ${m.minute}` : m.minute;
-   const scoreClass = m.isLive? 'live' : 'notlive';
-   html+=`<div class="match">
-     <div class="match-left">${liveText}</div>
-     <div class="match-center">
-       <div class="team">${m.homeTeam}</div>
-       <div class="team">${m.awayTeam}</div>
-     </div>
-     <div class="score ${scoreClass}">${m.homeScore}-${m.awayScore}</div>
-   </div>`;
-  });
-  html+=`</div>`;
- }
- document.getElementById('content').innerHTML=html;
-}
-loadMatches(currentDateISO);
-setInterval(()=>{autoSec--; if(autoSec<=0){autoSec=60; loadMatches(currentDateISO);} },1000);
-</script>
-</body>
-</html>
+ }catch(e){document.getElementById('content').innerHTML=`<div class="loading">Error</div>`
