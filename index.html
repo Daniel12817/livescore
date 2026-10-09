@@ -12,23 +12,22 @@ body{background:#0e1116;color:#fff;font-family:Arial}
 .date-bar{display:flex;gap:6px;padding:10px;background:#161a23;overflow-x:auto}
 .date-bar button{background:#222834;border:1px solid #333;color:#aaa;padding:8px 14px;border-radius:20px;cursor:pointer;white-space:nowrap}
 .date-bar button.active{background:#ff3b30;color:#fff}
-.filter-bar{display:flex;gap:8px;padding:0 10px 10px;background:#161a23;align-items:center}
+.filter-bar{display:flex;gap:8px;padding:10px;background:#161a23;align-items:center}
 .filter-bar button{background:#1a1f2b;border:1px solid #333;color:#aaa;padding:6px 14px;border-radius:15px;font-size:13px;cursor:pointer}
 .filter-bar button.active{background:#fff;color:#000;font-weight:bold}
-.refresh{margin-left:auto;font-size:12px;color:#4caf50;display:flex;align-items:center;gap:6px}
-.refresh span{background:#222834;padding:4px 8px;border-radius:10px;color:#ccc;cursor:pointer}
+.refresh{margin-left:auto}
+.refresh span{background:#222834;padding:6px 12px;border-radius:12px;color:#ccc;cursor:pointer;border:1px solid #333}
 .league{margin:10px 6px;background:#1a1f2b;border-radius:10px;overflow:hidden}
 .league-head{background:#222834;padding:10px 12px;font-weight:bold;font-size:13px;display:flex;align-items:center;color:#ccc}
 .league-logo{width:20px;height:20px;margin-right:8px;object-fit:contain}
 .match{display:flex;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid #252b3a}
-.time{font-size:12px;color:#8a93a8;min-width:60px}
+.time{font-size:12px;color:#8a93a8;min-width:50px}
 .teams{flex:1;margin-left:10px;font-size:14px}
 .team{display:flex;align-items:center;gap:6px;margin:3px 0}
 .team-logo{width:18px;height:18px;object-fit:contain}
 .score{background:#222834;padding:5px 10px;border-radius:6px;font-weight:bold;min-width:45px;text-align:center}
-.score.live{background:#ff3b30;color:#fff;animation:blink 1s infinite}
+.score.live{background:#ff3b30;color:#fff}
 .loading{padding:50px;text-align:center;color:#777}
-@keyframes blink{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
 </style>
 </head>
 <body>
@@ -38,14 +37,13 @@ body{background:#0e1116;color:#fff;font-family:Arial}
   <button class="active" id="f-all" onclick="setFilter('all')">All Games</button>
   <button id="f-live" onclick="setFilter('live')">🔴 LIVE</button>
   <button id="f-finished" onclick="setFilter('finished')">Finished</button>
-  <div class="refresh"><span id="refreshBtn" onclick="doRefresh()">↻ Refresh</span> <span id="autoTime">auto 60s</span></div>
+  <div class="refresh"><span onclick="doRefresh()">↻ Refresh</span></div>
 </div>
-<div id="content"><div class="loading">Loading all leagues...</div></div>
+<div id="content"><div class="loading">Loading...</div></div>
 
 <script>
 let allData=[], currentDate='', currentFilter='all';
 const dateBar=document.getElementById('dateBar'), content=document.getElementById('content');
-
 function makeBar(){
   for(let i=-2;i<=4;i++){
     const d=new Date(); d.setDate(d.getDate()+i);
@@ -53,23 +51,12 @@ function makeBar(){
     const btn=document.createElement('button');
     btn.textContent=i===0?'Today':d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
     if(i===0){btn.className='active'; currentDate=iso;}
-    btn.onclick=()=>{
-      document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active'); currentDate=iso; loadMatches(iso);
-    };
+    btn.onclick=()=>{document.querySelectorAll('.date-bar button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');currentDate=iso;loadMatches(iso);};
     dateBar.appendChild(btn);
   }
 }
-
-function setFilter(f){
-  currentFilter=f;
-  document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('f-'+f).classList.add('active');
-  render();
-}
-
-function doRefresh(){ loadMatches(currentDate); }
-
+function setFilter(f){currentFilter=f;document.querySelectorAll('.filter-bar button').forEach(b=>b.classList.remove('active'));document.getElementById('f-'+f).classList.add('active');render();}
+function doRefresh(){loadMatches(currentDate);}
 async function loadMatches(dateISO){
   currentDate=dateISO;
   content.innerHTML=`<div class="loading">Loading ${dateISO}...</div>`;
@@ -77,44 +64,30 @@ async function loadMatches(dateISO){
     const res=await fetch(`/api/matches?date=${dateISO}`);
     const json=await res.json();
     allData=json.data||[];
-    // Sort: Live first, then finished, then upcoming
-    allData.sort((a,b)=>{ if(a.isLive &&!b.isLive) return -1; if(!a.isLive && b.isLive) return 1; return 0;});
+    allData.sort((a,b)=>{if(a.isLive &&!b.isLive)return-1;if(!a.isLive && b.isLive)return 1;return 0;});
     render();
-    document.getElementById('autoTime').textContent='auto 60s • '+new Date().toLocaleTimeString();
-  }catch(e){ content.innerHTML=`<div class="loading">Error ${e.message}</div>`; }
+  }catch(e){content.innerHTML=`<div class="loading">Error ${e.message}</div>`;}
 }
-
 function render(){
   let data=allData;
   if(currentFilter==='live') data=data.filter(m=>m.isLive);
   if(currentFilter==='finished') data=data.filter(m=>m.isFinished);
-
   if(!data.length){content.innerHTML=`<div class="loading">No ${currentFilter} games</div>`;return;}
-
   const groups={};
-  data.forEach(m=>{
-    const key=`${m.country} | ${m.league} | ${m.leagueLogo}`;
-    if(!groups[key]) groups[key]=[];
-    groups[key].push(m);
-  });
-
+  data.forEach(m=>{const key=`${m.country} | ${m.league} | ${m.leagueLogo}`;if(!groups[key])groups[key]=[];groups[key].push(m);});
   let html='';
   for(const key in groups){
     const matches=groups[key];
     const [country,league,logo]=key.split(' | ');
-    const f=matches[0];
     html+=`<div class="league"><div class="league-head"><img src="${logo}" class="league-logo" onerror="this.style.display='none'">${country} - ${league} (${matches.length})</div>`;
     matches.forEach(m=>{
-      html+=`<div class="match"><div class="time ${m.isLive?'live':''}">${m.isLive?'LIVE':''} ${m.timeEU}</div><div class="teams"><div class="team"><img src="${m.homeLogo}" class="team-logo" onerror="this.style.display='none'">${m.homeTeam}</div><div class="team"><img src="${m.awayLogo}" class="team-logo" onerror="this.style.display='none'">${m.awayTeam}</div></div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
+      html+=`<div class="match"><div class="time">${m.isLive?'LIVE':''} ${m.timeEU}</div><div class="teams"><div class="team"><img src="${m.homeLogo}" class="team-logo" onerror="this.style.display='none'">${m.homeTeam}</div><div class="team"><img src="${m.awayLogo}" class="team-logo" onerror="this.style.display='none'">${m.awayTeam}</div></div><div class="score ${m.isLive?'live':''}">${m.homeScore}-${m.awayScore}</div></div>`;
     });
     html+=`</div>`;
   }
   content.innerHTML=html;
 }
-
-makeBar();
-loadMatches(currentDate);
-setInterval(()=>loadMatches(currentDate),60000);
+makeBar(); loadMatches(currentDate);
 </script>
 </body>
 </html>
