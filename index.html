@@ -1,105 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LiveScore - Your API/title>
+<title>LiveScore</title>
 <style>
-body{margin:0;font-family:Arial;background:#0f172a;color:white}
-.header{padding:15px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}
-.date-bar{display:flex;gap:8px;padding:12px;overflow-x:auto;background:#1e293b}
-.date-bar button{padding:8px 12px;border:1px solid #334155;background:transparent;color:white;border-radius:20px;white-space:nowrap}
-.date-bar button.active{background:#22c55e;color:black;border:none;font-weight:bold}
-.filter-bar{display:flex;gap:8px;padding:12px;background:#0f172a}
-.filter-bar button{padding:8px 16px;border-radius:8px;border:none;background:#1e293b;color:white}
-.filter-bar button.active{background:white;color:black}
-.card{background:#1e293b;margin:8px;border-radius:12px;padding:12px}
-.league{font-size:12px;color:#94a3b8;margin-bottom:8px}
-.teams{display:flex;justify-content:space-between;align-items:center}
-.score{font-weight:bold;font-size:18px}
-.live{color:#22c55e;font-size:12px}
-.loading{padding:40px;text-align:center;color:#94a3b8}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#fff;font-family:Arial;padding:0}
+.top{background:#1e293b;padding:15px;display:flex;justify-content:space-between}
+#games{padding:10px}
+.card{background:#1e293b;margin:10px 0;padding:15px;border-radius:10px}
+.score{font-size:20px;font-weight:bold;text-align:center;margin:10px 0}
+.row{display:flex;justify-content:space-between}
+.green{color:#22c55e}
 </style>
 </head>
 <body>
-<div class="header"><h3 style="margin:0">LiveScore</h3><span id="status">Your API: live-football-api.com</span></div>
-<div class="date-bar" id="dateBar"></div>
-<div class="filter-bar">
-<button class="filter-btn active" data-f="all">All Games</button>
-<button class="filter-btn" data-f="live">LIVE</button>
-<button class="filter-btn" data-f="finished">Finished</button>
-</div>
-<div id="games"><div class="loading">Loading from your API...</div></div>
-
+<div class="top"><b>⚽ LiveScore</b><span style="font-size:12px">API: live-football-api.com</span></div>
+<div id="games" style="padding:20px;text-align:center">Loading live games...</div>
 <script>
-let allData=[], curFilter='all';
-
-function fmtDate(d){ return d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}) }
-
-function buildDates(){
-  let h='<button class="date-btn active" data-date="Today">Today</button>';
-  for(let i=1;i<=6;i++){
-    let d=new Date(); d.setDate(d.getDate()+i);
-    let iso=d.toISOString().split('T')[0];
-    h+=`<button class="date-btn" data-date="${iso}">${fmtDate(d)}</button>`;
+async function load(){
+ try{
+  let r=await fetch('/api/matches');
+  let j=await r.json();
+  console.log(j);
+  let data=j.data||[];
+  if(data.length==0){
+   document.getElementById('games').innerHTML='<p>No games today<br><small>'+ (j.error||'') +'</small><br><small>'+ JSON.stringify(j).slice(0,300)+'</small></p>';
+   return;
   }
-  document.getElementById('dateBar').innerHTML=h;
-}
-
-function pick(e){
-  document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'));
-  e.target.classList.add('active');
-  loadDate(e.target.dataset.date);
-}
-
-async function loadDate(dateStr){
-  let apiDate = dateStr==='Today'? new Date().toISOString().split('T')[0] : dateStr;
-  document.getElementById('games').innerHTML='<div class="loading">Loading from your API...</div>';
-  try{
-    let r=await fetch(`/api/matches?date=${apiDate}`,{cache:'no-store'});
-    let j=await r.json();
-    allData=j.data||[];
-    if(allData.length===0){
-      document.getElementById('games').innerHTML=`<div class="loading">No games for ${dateStr}<br><small>API: ${JSON.stringify(j).slice(0,200)}</small></div>`;
-      return;
-    }
-    render();
-  }catch(e){
-    document.getElementById('games').innerHTML=`<div class="loading">Error: ${e.message}</div>`;
-  }
-}
-
-function render(){
-  let filtered = allData;
-  if(curFilter==='live') filtered = allData.filter(m=> (m.status||'').toLowerCase().includes('live') || m.live || m.minute);
-  if(curFilter==='finished') filtered = allData.filter(m=> (m.status||'').toLowerCase().includes('ft') || (m.status||'').toLowerCase().includes('finished'));
-
   let html='';
-  filtered.forEach(m=>{
-    let home = m.home_team||m.home?.name||m.teams?.home||'Home';
-    let away = m.away_team||m.away?.name||m.teams?.away||'Away';
-    let hs = m.home_score?? m.score?.home?? m.goals?.home?? '-';
-    let as = m.away_score?? m.score?.away?? m.goals?.away?? '-';
-    let status = m.status||m.time||m.minute||'';
-    let league = m.league?.name||m.competition||m.league_name||'Match';
-    let isLive = (status+'').toLowerCase().includes('live') || m.live;
-    html+=`<div class="card"><div class="league">${league} - <span class="${isLive?'live':''}">${status}</span></div><div class="teams"><span>${home}</span><span class="score">${hs} - ${as}</span><span>${away}</span></div></div>`;
+  data.slice(0,30).forEach(m=>{
+   let h=m.home_team||m.home?.name||m.teams?.home||'Home';
+   let a=m.away_team||m.away?.name||m.teams?.away||'Away';
+   let hs=m.home_score??m.score?.home??m.goals?.home??'-';
+   let as=m.away_score??m.score?.away??m.goals?.away??'-';
+   let league=m.league?.name||m.competition||'League';
+   let st=m.status||'';
+   html+=`<div class="card"><div style="font-size:12px;color:#94a3b8">${league} - ${st}</div><div class="row"><span>${h}</span><span>${a}</span></div><div class="score">${hs} - ${as}</div></div>`;
   });
-  document.getElementById('games').innerHTML=html||'<div class="loading">No games for filter</div>';
+  document.getElementById('games').innerHTML=html;
+ }catch(e){
+  document.getElementById('games').innerHTML='Error: '+e.message;
+ }
 }
-
-document.addEventListener('click',e=>{
-  if(e.target.classList.contains('date-btn')) pick(e);
-  if(e.target.classList.contains('filter-btn')){
-    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-    e.target.classList.add('active');
-    curFilter=e.target.dataset.f;
-    render();
-  }
-});
-
-buildDates();
-loadDate('Today');
+load();
+setInterval(load,30000);
 </script>
 </body>
 </html>
