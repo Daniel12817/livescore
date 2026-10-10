@@ -1,66 +1,54 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate');
 
   const KEY = process.env.APISPORT_KEY;
-  const date = req.query.date || new Date().toISOString().split('T')[0];
+  const date = req.query.date;
 
-  if (!KEY) return res.json({ data: [], error: "No KEY in Vercel" });
+  if (!KEY) return res.status(200).json({ data: [], error: "Missing APISPORT_KEY" });
 
   try {
-    // Use apisport.online correct endpoint - test both
-    let url = `https://api.apisport.online/v1/football/matches?date=${date}`;
+    // Use YOUR exact working endpoint from screenshot
+    const url = `https://api.apisport.online/api/v1/fixtures/live${date? `?date=${date}` : ''}`;
 
-    // Try apisport.online with header auth
     const r = await fetch(url, {
       headers: {
         'x-api-key': KEY,
-        'Authorization': KEY
+        'X-API-Key': KEY,
+        'Authorization': `Bearer ${KEY}`,
+        'apikey': KEY
       }
     });
 
-    const text = await r.text();
-    let j;
-    try { j = JSON.parse(text); } catch(e) { j = { raw: text }; }
+    const j = await r.json();
 
-    // If apisport.online fails, try isportsapi format too
-    if (!r.ok || j.code === 2 || text.includes('Invalid')) {
-      const r2 = await fetch(`http://api.isportsapi.com/sport/football/schedule?api_key=${KEY}&date=${date}`);
-      const j2 = await r2.json();
-      if (j2.data) {
-        const games = j2.data.map(m => ({
-          country: (m.countryName || 'WORLD').toUpperCase(),
-          league: m.leagueName || 'League',
-          homeTeam: m.homeName || 'Home',
-          awayTeam: m.awayName || 'Away',
-          homeScore: m.homeScore?? 0,
-          awayScore: m.awayScore?? 0,
-          minute: m.status==1?'LIVE':m.status==0?'FT':(m.matchTime||'15:00'),
-          isLive: m.status==1,
-          isFinished: m.status==0
-        }));
-        return res.json({ data: games, source: "isportsapi fallback", count: games.length });
-      }
-      return res.json({ data: [], error: "Invalid key", raw: text, raw2: j2 });
+    // Your API returns { s: 1, d: [...] } <-- THIS IS IT!
+    let list = j.d || j.data || j.fixtures || [];
+
+    if (!Array.isArray(list) || list.length === 0) {
+      return res.status(200).json({ data: [], raw: j, count: 0, note: "No live games at this moment" });
     }
 
-    // Parse apisport.online success
-    let list = j.data || j.matches || [];
-    const games = list.map(m => ({
-      country: (m.country || 'WORLD').toUpperCase(),
-      league: m.league || 'League',
-      homeTeam: m.home || m.homeTeam || 'Home',
-      awayTeam: m.away || m.awayTeam || 'Away',
-      homeScore: m.homeScore?? 0,
-      awayScore: m.awayScore?? 0,
-      minute: m.minute || '15:00',
-      isLive: m.isLive || false,
-      isFinished: m.isFinished || false
-    }));
+    const games = list.map(m => {
+      const status = (m.s || "").toUpperCase();
+      return {
+        id: m.i,
+        country: "WORLD",
+        league: "Live Match",
+        homeTeam: m.h?.n || "Home",
+        awayTeam: m.a?.n || "Away",
+        homeScore: m.sc?.[0]?? 0,
+        awayScore: m.sc?.[1]?? 0,
+        minute: status,
+        isLive: ["1H","2H","LIVE","HT","ET","P"].includes(status),
+        isFinished: status === "FT",
+        timestamp: m.t
+      };
+    });
 
-    return res.json({ data: games, count: games.length, source: "apisport.online" });
+    return res.status(200).json({ data: games, count: games.length, source: "apisport.online - LIVE", raw_sample: games[0] });
 
   } catch (e) {
-    return res.json({ data: [], error: e.message });
+    return res.status(200).json({ data: [], error: e.message });
   }
 }
