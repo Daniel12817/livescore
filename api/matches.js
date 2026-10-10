@@ -1,29 +1,39 @@
-export default async function handler(req,res){
- res.setHeader('Access-Control-Allow-Origin','*');
- res.setHeader('Cache-Control','s-maxage=30, stale-while-revalidate');
- const KEY = process.env.APISPORT_KEY;
- if(!KEY) return res.status(200).json({data:[], error:"Missing APISPORT_KEY"});
- try{
-   const url = `https://api.apisport.online/sport/football/fixtures/live`;
-   const r = await fetch(url,{ headers:{ 'x-api-key': KEY }});
-   const j = await r.json();
-   let list = j.data || j.d || j.result || [];
-   if(!Array.isArray(list) || list.length===0){
-     return res.status(200).json({data:[], raw:j, count:0, note:"No live now - raw: "+JSON.stringify(j).slice(0,200)});
-   }
-   const games = list.map(m=>({
-     id:m.id,
-     status:m.status || "LIVE",
-     league:m.league?.name || "Live Match",
-     homeTeam:m.homeTeam?.name || m.home?.name || "Home",
-     awayTeam:m.awayTeam?.name || m.away?.name || "Away",
-     homeScore:m.homeTeam?.score ?? m.home?.score ?? 0,
-     awayScore:m.awayTeam?.score ?? m.away?.score ?? 0,
-     minute:m.minute || m.time || 0,
-     isLive:true
-   }));
-   return res.status(200).json({data:games, count:games.length, source:"apisport.online - LIVE"});
- }catch(e){
-   return res.status(200).json({data:[], error:e.message});
- }
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const API_KEY = process.env.LIVE_FOOTBALL_API_KEY;
+  if (!API_KEY) {
+    return res.status(500).json({ error: "Missing LIVE_FOOTBALL_API_KEY in Vercel Env Vars", data: [] });
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const r = await fetch(`https://api.live-football-api.com/api/v1/matches?date=${today}&lang=en`, {
+      headers: {
+        'X-API-Key': API_KEY,
+        'Accept': 'application/json'
+      }
+    });
+
+    const json = await r.json();
+
+    if (!r.ok) {
+      return res.status(r.status).json({ error: json.message || "API error", data: [], raw: json });
+    }
+
+    const matches = json?.data?.matches || json?.data || [];
+
+    return res.status(200).json({
+      data: matches,
+      count: matches.length,
+      date: today,
+      credits: json?.credits_remaining || json?.data?.credits_remaining
+    });
+
+  } catch (e) {
+    return res.status(500).json({ data: [], error: e.message });
+  }
 }
